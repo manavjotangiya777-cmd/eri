@@ -1,0 +1,24 @@
+[2026-02-24T12:09:42.467Z] AI Request received
+[2026-02-24T12:09:42.469Z] History length: 0, Current Prompt: hello
+[2026-02-24T12:09:43.087Z] ERROR: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+DETAILS/STACK: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async makeRequest (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:403:9)
+    at async generateContentStream (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:862:22)
+[2026-02-24T12:46:59.844Z] AI Request received
+[2026-02-24T12:46:59.847Z] History length: 0, Current Prompt: employee panel ma employee add krava mate code apo
+[2026-02-24T12:47:00.442Z] ERROR: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+DETAILS/STACK: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async makeRequest (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:403:9)
+    at async generateContentStream (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:862:22)
+[2026-02-25T07:06:49.803Z] AI Request received
+[2026-02-25T07:06:49.814Z] History length: 0, Current Prompt: hello
+[2026-02-25T07:06:50.550Z] ERROR: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+DETAILS/STACK: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at handleResponseNotOk (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:434:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async makeRequest (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:403:9)
+    at async generateContentStream (D:\XAMPP\htdocs\Manav Admin 1\backend\node_modules\@google\generative-ai\dist\index.js:862:22)

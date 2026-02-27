@@ -1,0 +1,90 @@
+{
+  "profiles": [
+    {
+      "_id": "699e9fe2389a21846fc44167",
+      "username": "Prayushi",
+      "password_hash": "123456",
+      "email": null,
+      "phone": null,
+      "full_name": null,
+      "role": "client",
+      "department": null,
+      "designation_id": null,
+      "date_of_birth": null,
+      "hire_date": null,
+      "avatar_url": null,
+      "is_active": true,
+      "client_id": null,
+      "created_at": "2026-02-25T07:08:18.576Z",
+      "updated_at": "2026-02-25T07:08:18.576Z",
+      "__v": 0
+    },
+    {
+      "_id": "699ea5308cc4faf88244b9c9",
+      "username": "Manav",
+      "password_hash": "123456",
+      "email": null,
+      "phone": null,
+      "full_name": null,
+      "role": "client",
+      "department": null,
+      "designation_id": null,
+      "date_of_birth": null,
+      "hire_date": null,
+      "avatar_url": null,
+      "is_active": true,
+      "client_id": null,
+      "created_at": "2026-02-25T07:30:56.775Z",
+      "updated_at": "2026-02-25T07:30:56.775Z",
+      "__v": 0
+    }
+  ],
+  "clients": [
+    {
+      "_id": "699d894d73b69c4963f7131b",
+      "company_name": "Error Infotech",
+      "contact_person": "Manav Jotangiya",
+      "email": "manavjotangiya777@gmail.com",
+      "phone": "09898869189",
+      "address": "Near dev bhoomi complex opposite of Ganesh department store near ishwariya super market\n80 feet main road railnagar, Rajkot",
+      "status": "active",
+      "assigned_to": "699d692d1292e67d2ced443f",
+      "created_by": "699d4d3fe84e1b0effe920d5",
+      "created_at": "2026-02-24T11:19:41.468Z",
+      "updated_at": "2026-02-24T11:19:41.468Z",
+      "__v": 0
+    }
+  ],
+  "tasks": [
+    {
+      "_id": "699d8b2ee4470d936a2de25d",
+      "title": "Task",
+      "description": "Manabv",
+      "priority": "medium",
+      "status": "in_progress",
+      "deadline": "2026-02-24T11:27:00.000Z",
+      "assigned_to": "699d51b8fd128dbe74ad2d94",
+      "client_id": "699d894d73b69c4963f7131b",
+      "created_by": "699d4d3fe84e1b0effe920d5",
+      "total_time_spent": 8,
+      "created_at": "2026-02-24T11:27:42.073Z",
+      "updated_at": "2026-02-24T11:33:40.673Z",
+      "__v": 0
+    },
+    {
+      "_id": "699d8d4d4abf8fb26ee2c646",
+      "title": "Manav",
+      "description": "Manav",
+      "priority": "medium",
+      "status": "pending",
+      "deadline": "2026-02-24T11:36:00.000Z",
+      "assigned_to": "699d51b8fd128dbe74ad2d94",
+      "client_id": "699d894d73b69c4963f7131b",
+      "created_by": "699d4d3fe84e1b0effe920d5",
+      "total_time_spent": 0,
+      "created_at": "2026-02-24T11:36:45.594Z",
+      "updated_at": "2026-02-24T11:36:45.594Z",
+      "__v": 0
+    }
+  ]
+}
