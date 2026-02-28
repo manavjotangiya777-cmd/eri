@@ -1,0 +1,214 @@
+# Task: Build IT Company CRM System
+
+## Plan
+- [x] Step 1: Initialize Supabase and setup database schema
+  - [x] Initialize Supabase backend
+  - [x] Create database migrations with all tables
+  - [x] Setup RLS policies for role-based access
+  - [x] Add seed data
+- [x] Step 2: Update theme and design system
+  - [x] Update index.css with professional IT company colors
+  - [x] Configure tailwind.config.js
+- [x] Step 3: Create type definitions and database API layer
+  - [x] Create types.ts with all interfaces
+  - [x] Create db/api.ts with all database operations
+- [x] Step 4: Setup authentication system
+  - [x] Update AuthContext for role-based auth
+  - [x] Update RouteGuard with proper routes
+  - [x] Create Login page
+- [x] Step 5: Create layout components
+  - [x] AdminLayout with sidebar navigation
+  - [x] HRLayout with sidebar navigation
+  - [x] EmployeeLayout with sidebar navigation
+- [x] Step 6: Implement Admin module pages
+  - [x] Admin Dashboard
+  - [x] User Management page with create user functionality
+  - [x] Client Management page
+  - [x] Task Management page (fully functional)
+  - [x] Attendance Overview page (fully functional)
+  - [x] System Settings page (fully functional)
+  - [x] Chat page (fully functional with real-time)
+- [x] Step 7: Implement HR module pages
+  - [x] HR Dashboard
+  - [x] Employee Management page (fully functional)
+  - [x] Client Management page (fully functional)
+  - [x] Task Management page (fully functional)
+  - [x] Leave Management page (fully functional)
+  - [x] Content Management page (fully functional - Holidays, Birthdays, Announcements)
+  - [x] Chat page (fully functional with real-time)
+- [x] Step 8: Implement Employee module pages
+  - [x] Employee Dashboard
+  - [x] Clock In/Out page (fully functional)
+  - [x] My Tasks page (placeholder)
+  - [x] Leave Application page (placeholder)
+  - [x] Information Center page (placeholder)
+- [x] Step 9: Implement shared features
+  - [x] Chat system with real-time messaging
+  - [x] Notification system (integrated)
+  - [x] Profile page (placeholder)
+- [x] Step 10: Update routing and App.tsx
+  - [x] Create routes.tsx with all routes
+  - [x] Update App.tsx with AuthProvider and RouteGuard
+- [x] Step 11: Run lint and fix issues
+- [x] Step 12: Additional features
+  - [x] Admin can create users with username and password
+  - [x] Task management with full CRUD operations
+  - [x] Attendance overview for admin
+  - [x] System settings configuration
+  - [x] Real-time chat with Supabase Realtime
+- [x] Step 13: Role-based redirection
+  - [x] Verify RoleRedirect component works correctly
+  - [x] Add delay in user creation to ensure trigger completes
+  - [x] Add clear role descriptions in create user dialog
+  - [x] Create ROLE_ACCESS_GUIDE.md documentation
+- [x] Step 14: Implement comprehensive attendance features
+  - [x] HR Attendance Management page with full CRUD operations
+  - [x] Employee Attendance Report page with statistics
+  - [x] Add attendance API functions (create, update, delete)
+  - [x] Update layouts with attendance navigation links
+  - [x] Admin can view all attendance (existing AttendanceOverview page)
+  - [x] HR can manage and edit all employee attendance
+  - [x] Employees can only view their own attendance reports
+- [x] Step 15: Fix RLS policies for all tables
+  - [x] Fixed missing WITH CHECK clauses on clients table
+  - [x] Fixed missing WITH CHECK clauses on announcements, holidays, tasks, leaves tables
+  - [x] Fixed missing WITH CHECK clauses on chats, messages, profiles, system_settings tables
+  - [x] Added HR attendance management policy
+  - [x] All RLS policies now properly support INSERT/UPDATE operations
+- [x] Step 16: Implement role-based route protection
+  - [x] Created ProtectedRoute component to enforce role-based access
+  - [x] Wrapped all admin routes with ProtectedRoute (allowedRoles: ['admin'])
+  - [x] Wrapped all HR routes with ProtectedRoute (allowedRoles: ['hr'])
+  - [x] Wrapped all employee routes with ProtectedRoute (allowedRoles: ['employee'])
+  - [x] Added comprehensive console logging for debugging
+  - [x] Users are automatically redirected to their correct panel if they try to access unauthorized routes
+- [x] Step 17: Fix attendance edit dialog data issues
+  - [x] Fixed datetime formatting in handleEdit to properly extract time from timestamps
+  - [x] Added proper timezone handling using toLocaleTimeString with hour12: false
+  - [x] Added form data reset when edit/add dialogs close to prevent stale data
+  - [x] Added comprehensive console logging for debugging attendance operations
+  - [x] Filtered attendance records to only show employee data for HR
+  - [x] Added editRecord null check in edit dialog to prevent rendering with stale data
+- [x] Step 18: Implement all employee panel modules
+  - [x] Created EmployeeTasks page with task list, status updates, and priority/deadline display
+  - [x] Created EmployeeLeave page with leave request form and leave history table
+  - [x] Created EmployeeInfo page with tabs for holidays, announcements, birthdays, and documents
+  - [x] Created EmployeeChat page with real-time messaging to Admin and HR
+  - [x] Added getEmployeeTasks, updateTaskStatus, and getEmployeeLeaves API functions
+  - [x] Updated routes to use new employee pages instead of placeholders
+  - [x] All employee modules now fully functional with proper data operations
+- [x] Step 19: Implement task time tracking (Play/Pause functionality)
+  - [x] Create task_time_logs table for tracking time entries
+  - [x] Add total_time_spent field to tasks table
+  - [x] Create API functions for timer operations
+  - [x] Update EmployeeTasks page with Play/Pause buttons
+  - [x] Update Admin/HR task views to show time spent
+  - [x] Add real-time timer updates
+- [x] Step 20: Add password management features
+  - [x] Add change password functionality for admin
+  - [x] Create change-user-password Edge Function
+  - [x] Add password visibility toggle (eye icon) to all password fields
+  - [x] Update User Management page with change password button
+  - [x] Update Login page with password visibility toggle
+  - [x] Update Create User dialog with password visibility toggle
+- [x] Step 21: Add Department Management Module
+  - [x] Create departments and designations database tables
+  - [x] Add RLS policies for departments and designations
+  - [x] Insert default departments and designations
+  - [x] Add Department and Designation types to TypeScript
+  - [x] Create API functions for CRUD operations
+  - [x] Create DepartmentManagement page with tabs
+  - [x] Add department filter to User Management
+  - [x] Update user creation/editing to use department/designation dropdowns
+  - [x] Add navigation link in AdminLayout
+  - [x] Add route for Department Management
+- [x] Step 22: Add Group Chat Functionality
+  - [x] Update database schema to support group chats
+  - [x] Add chat_type, group_name, group_description, created_by fields to chats table
+  - [x] Create chat_members table for group membership
+  - [x] Update RLS policies for group chat access
+  - [x] Add Chat and ChatMember TypeScript types
+  - [x] Create API functions for group chat operations
+  - [x] Update ChatPage with Create Group button
+  - [x] Add group creation dialog with member selection
+  - [x] Update chat list to show group chats with group icon
+  - [x] Add group info dialog with member management
+  - [x] Add/remove members functionality
+  - [x] Show sender names in group chat messages
+  - [x] Add leave group functionality
+  - [x] Add edit group functionality
+- [x] Step 23: Implement Client Module (Super Module)
+  - [x] Create Client module layout with sidebar navigation
+  - [x] Implement Client Dashboard with tasks, announcements, and documents
+  - [x] Implement Client Projects (Tasks) page
+  - [x] Implement Client Documents page with download functionality
+  - [x] Implement Client Support Chat with Admin/HR
+  - [x] Enable AI Assistant for Client users
+  - [x] Update HR Content Management with document upload for clients
+  - [x] Enhance Announcements and Documents with client-specific visibility
+  - [x] Update routing and role-based access for Client role
+- [x] Step 24: Enhanced Client User Management & Project Updates
+  - [x] Add "Manage" button to Admin/HR Client Management
+  - [x] Implement tabs for Users, Tasks, and Notes in Client Details dialog
+  - [x] Allow Admin/HR to create client user accounts directly from Client Management
+  - [x] Implement Client Notes for sharing private project updates
+  - [x] Add "Project Updates" section to Client Dashboard
+  - [x] Fix RLS policies for client_notes to allow clients to view their own notes
+  - [x] Update Login page to clearly display Client Portal access
+- [x] Step 25: Payroll & Billing System for Clients
+  - [x] Create payment_milestones and invoices tables
+  - [x] Add achievement-wise levels (milestones) management for Admin
+  - [x] Implement invoice generation and tracking for Admin
+  - [x] Create Client Billing page for payment tracking and progress
+  - [x] Update layouts and navigation for Billing and Invoices
+- [x] Step 26: Deliver PHP/MySQL Migration Kit
+  - [x] Create comprehensive MySQL schema (SQL file)
+  - [x] Develop PHP API boilerplate (config, db, core router)
+  - [x] Provide migration guide for external deployment
+  - [x] Extract and export all existing data from Supabase to MySQL format
+  - [x] Include security-ready password hashes for all migrated user accounts
+- [x] Step 27: Implement Hybrid Mock Engine for Preview Stability
+  - [x] Create mock persistence layer using localStorage
+  - [x] Add auto-fallback logic to API fetcher
+  - [x] Implement mock authentication for server connection issues
+
+
+
+
+
+
+## Notes
+- Using Supabase for backend (PostgreSQL + Auth + Realtime)
+- Three roles: admin, hr, employee
+- First registered user becomes admin automatically
+- Real-time chat using Supabase Realtime implemented
+- Clock-in/out system with automatic tracking fully functional
+- Admin can create users via Edge Function with custom username/password
+- Task management with priority, status, and assignment features
+- Attendance tracking with late detection
+- System settings for company info and work hours configuration
+- All core admin features are complete and functional
+- **Role-based redirection FIXED**: 
+  - Profile is now fetched immediately after login in AuthContext
+  - Added 800ms delay (500ms + 300ms) to ensure profile loads before redirection
+  - RoleRedirect component has better loading states and debug logging
+  - Login page shows role-based access information with visual badges
+  - Console logs show "RoleRedirect: Redirecting user with role: [role]" for debugging
+- When admin creates a user with a specific role (employee/hr/admin), that user will automatically be redirected to their role-specific panel upon login
+- See ROLE_ACCESS_GUIDE.md for detailed explanation of role-based access control and troubleshooting
+- [x] Step 28: Implement Delete User Functionality
+  - [x] Modified mockDb.ts to support deletion of seeded profiles
+  - [x] Added deleteProfile API function to src/db/api.ts
+  - [x] Updated PHP backend api.php with DELETE /profiles endpoint
+  - [x] Added Delete User button and confirmation dialog to Admin User Management
+  - [x] Added Delete User button and confirmation dialog to HR Employee Management
+
+- **RLS Policies Fixed**: All tables now have proper WITH CHECK clauses for INSERT/UPDATE operations, fixing the "failed to save" error when creating clients, tasks, holidays, announcements, and other records
+- **Role-based Route Protection**: All routes are now protected with ProtectedRoute component - users cannot access panels they don't have permission for. If an HR user tries to access /admin, they will be automatically redirected to /hr. Same applies for all roles.
+- **Employee Panel Complete**: All employee modules are now fully functional:
+  - My Tasks: View assigned tasks, update task status, see priorities and deadlines
+  - Leave Request: Submit leave requests, view leave history and status
+  - Information: View holidays, announcements, upcoming birthdays, and download documents
+  - Chat: Real-time messaging with Admin and HR users
+  - Attendance: Clock in/out and view attendance reports
+

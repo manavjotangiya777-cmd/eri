@@ -1,0 +1,946 @@
+import { useEffect, useState } from 'react';
+import AdminLayout from '@/components/layouts/AdminLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { getAllProfiles, updateProfile, getActiveDepartments, getActiveDesignations, getAllClients, deleteProfile, adminCreateUser, adminChangePassword } from '@/db/api';
+import type { Profile, Department, Designation, Client } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import { Pencil, Plus, Key, Eye, EyeOff, Filter, Trash2, ShieldCheck } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import React from 'react';
+
+export default function UserManagement() {
+    const [users, setUsers] = useState<Profile[]>([]);
+    const [filteredUsers, setFilteredUsers] = useState<Profile[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
+    const [designations, setDesignations] = useState<Designation[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
+    const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('all');
+    const [loading, setLoading] = useState(true);
+    const [editUser, setEditUser] = useState<Profile | null>(null);
+    const [editOpen, setEditOpen] = useState(false);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+    const [userToDelete, setUserToDelete] = useState<Profile | null>(null);
+    const [creating, setCreating] = useState(false);
+    const [changingPassword, setChangingPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const { toast } = useToast();
+
+    const [newUser, setNewUser] = useState({
+        username: '',
+        password: '',
+        email: '',
+        phone: '',
+        full_name: '',
+        role: 'employee' as any,
+        department: '',
+        designation_id: '',
+        client_id: '',
+        date_of_birth: '',
+        skip_ip_restriction: false,
+    });
+
+    const [passwordData, setPasswordData] = useState({
+        newPassword: '',
+        confirmPassword: '',
+    });
+
+    const loadUsers = async () => {
+        setLoading(true);
+        try {
+            const [usersData, deptData, desigData, clientData] = await Promise.all([
+                getAllProfiles(),
+                getActiveDepartments(),
+                getActiveDesignations(),
+                getAllClients(),
+            ]);
+            setUsers(usersData);
+            setFilteredUsers(usersData);
+            setDepartments(deptData);
+            setDesignations(desigData);
+            setClients(clientData);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to load users',
+                variant: 'destructive',
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadUsers();
+    }, []);
+
+    // Filter users by department
+    useEffect(() => {
+        if (selectedDepartmentFilter === 'all') {
+            setFilteredUsers(users);
+        } else {
+            setFilteredUsers(users.filter((user: Profile) => user.department === selectedDepartmentFilter));
+        }
+    }, [selectedDepartmentFilter, users]);
+
+    const handleEdit = (user: Profile) => {
+        setEditUser(user);
+        setEditOpen(true);
+    };
+
+    const handleChangePassword = (user: Profile) => {
+        setSelectedUser(user);
+        setPasswordData({ newPassword: '', confirmPassword: '' });
+        setShowNewPassword(false);
+        setChangePasswordOpen(true);
+    };
+
+    const confirmDelete = (user: Profile) => {
+        setUserToDelete(user);
+        setDeleteOpen(true);
+    };
+
+    const handleDeleteUser = async () => {
+        if (!userToDelete) return;
+
+        try {
+            await deleteProfile(userToDelete.id);
+            toast({
+                title: 'Success',
+                description: 'User deleted successfully',
+            });
+            loadUsers();
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to delete user',
+                variant: 'destructive',
+            });
+        } finally {
+            setDeleteOpen(false);
+            setUserToDelete(null);
+        }
+    };
+
+    const handleSubmitPasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!selectedUser) return;
+
+        if (!passwordData.newPassword) {
+            toast({
+                title: 'Error',
+                description: 'Password is required',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (passwordData.newPassword.length < 6) {
+            toast({
+                title: 'Error',
+                description: 'Password must be at least 6 characters',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            toast({
+                title: 'Error',
+                description: 'Passwords do not match',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setChangingPassword(true);
+        try {
+            const data = await adminChangePassword({
+                userId: selectedUser.id,
+                newPassword: passwordData.newPassword,
+            });
+
+            if (!data || !data.success) {
+                throw new Error(data?.error || 'Failed to change password');
+            }
+
+            toast({
+                title: 'Success',
+                description: 'Password changed successfully',
+            });
+            setChangePasswordOpen(false);
+            setPasswordData({ newPassword: '', confirmPassword: '' });
+        } catch (error: any) {
+            console.error('Failed to change password:', error);
+            toast({
+                title: 'Error',
+                description: error?.message || 'Failed to change password',
+                variant: 'destructive',
+            });
+        } finally {
+            setChangingPassword(false);
+        }
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editUser?.id) return;
+
+        try {
+            await updateProfile(editUser.id, {
+                full_name: editUser.full_name,
+                email: editUser.email,
+                phone: editUser.phone,
+                role: editUser.role,
+                department: editUser.department,
+                designation_id: editUser.designation_id,
+                client_id: editUser.client_id,
+                is_active: editUser.is_active,
+                skip_ip_restriction: editUser.skip_ip_restriction,
+                date_of_birth: editUser.date_of_birth,
+            });
+            toast({
+                title: 'Success',
+                description: 'User updated successfully',
+            });
+            setEditOpen(false);
+            loadUsers();
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to update user',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleCreateUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!newUser.username || !newUser.password) {
+            toast({
+                title: 'Error',
+                description: 'Username and password are required',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (newUser.email && !/^[^@]+@[^@]+\.[^@]+$/.test(newUser.email)) {
+            toast({
+                title: 'Error',
+                description: 'Please enter a valid email address',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setCreating(true);
+        try {
+            const data = await adminCreateUser({
+                username: newUser.username,
+                password: newUser.password,
+                email: newUser.email || undefined,
+                phone: newUser.phone || undefined,
+                role: newUser.role,
+            });
+
+            if (!data || !data.success) {
+                throw new Error((data as any)?.error || 'Failed to create user');
+            }
+
+            if (data?.user?.id) {
+                // Wait a moment for the trigger to complete
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Update the profile with the correct role and other details
+                await updateProfile(data.user.id, {
+                    full_name: newUser.full_name || null,
+                    email: newUser.email || null,
+                    phone: newUser.phone || null,
+                    role: newUser.role,
+                    department: newUser.department || null,
+                    designation_id: newUser.designation_id || null,
+                    client_id: newUser.client_id || null,
+                    date_of_birth: newUser.date_of_birth || null,
+                });
+            }
+
+            toast({
+                title: 'Success',
+                description: `User created successfully with role: ${newUser.role}`,
+            });
+
+            setNewUser({
+                username: '',
+                password: '',
+                email: '',
+                phone: '',
+                full_name: '',
+                role: 'employee',
+                department: '',
+                designation_id: '',
+                client_id: '',
+                date_of_birth: '',
+                skip_ip_restriction: false,
+            });
+            setCreateOpen(false);
+            loadUsers();
+        } catch (error: any) {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to create user',
+                variant: 'destructive',
+            });
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const getRoleBadge = (role: string) => {
+        const colors = {
+            admin: 'bg-destructive text-destructive-foreground',
+            hr: 'bg-primary text-primary-foreground',
+            employee: 'bg-secondary text-secondary-foreground',
+            client: 'bg-accent text-accent-foreground',
+            bde: 'bg-indigo-500 text-white',
+        };
+        return colors[role as keyof typeof colors] || 'bg-muted';
+    };
+
+    return (
+        <AdminLayout>
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold">User Management</h1>
+                        <p className="text-muted-foreground">Manage user accounts and roles</p>
+                    </div>
+                    <Button onClick={() => setCreateOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create User
+                    </Button>
+                </div>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                        <CardTitle>All Users</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            <Select
+                                value={selectedDepartmentFilter}
+                                onValueChange={setSelectedDepartmentFilter}
+                            >
+                                <SelectTrigger className="w-[200px]">
+                                    <SelectValue placeholder="Filter by department" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Departments</SelectItem>
+                                    {departments.map((dept: Department) => (
+                                        <SelectItem key={dept.id} value={dept.name}>
+                                            {dept.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {loading ? (
+                            <div className="text-center py-8">Loading...</div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Username</TableHead>
+                                        <TableHead>Full Name</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Department</TableHead>
+                                        <TableHead>Designation</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Remote Auth</TableHead>
+                                        <TableHead>Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredUsers.map((user: Profile) => (
+                                        <TableRow key={user.id}>
+                                            <TableCell className="font-medium">{user.username}</TableCell>
+                                            <TableCell>{user.full_name || '-'}</TableCell>
+                                            <TableCell>
+                                                <Badge className={getRoleBadge(user.role)}>{user.role}</Badge>
+                                            </TableCell>
+                                            <TableCell>{user.department || '-'}</TableCell>
+                                            <TableCell>{(user as any).designation?.name || '-'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                                                    {user.is_active ? 'Active' : 'Inactive'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                {user.role === 'employee' ? (
+                                                    user.skip_ip_restriction ? (
+                                                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20 flex gap-1 w-fit">
+                                                            <ShieldCheck className="h-3 w-3" /> Authorized
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="opacity-50">Standard</Badge>
+                                                    )
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground italic">Exempt</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleEdit(user)}
+                                                        title="Edit User"
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleChangePassword(user)}
+                                                        title="Change Password"
+                                                    >
+                                                        <Key className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => confirmDelete(user)}
+                                                        title="Delete User"
+                                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                    <DialogContent className="max-w-lg w-full max-h-[90vh] flex flex-col p-0 gap-0">
+                        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+                            <DialogTitle>Create New User</DialogTitle>
+                            <DialogDescription>Add a new user account to the system</DialogDescription>
+                        </DialogHeader>
+                        <div className="flex-1 overflow-y-auto px-6 py-4">
+                            <form id="create-user-form" onSubmit={handleCreateUser} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="new_username">Username *</Label>
+                                    <Input
+                                        id="new_username"
+                                        value={newUser.username}
+                                        onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                                        placeholder="e.g. john_doe"
+                                        required
+                                    />
+                                    <p className="text-xs text-muted-foreground">Letters, numbers, and underscores only</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new_email">Email Address</Label>
+                                        <Input
+                                            id="new_email"
+                                            type="email"
+                                            value={newUser.email}
+                                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                            placeholder="email@company.com"
+                                        />
+                                        <p className="text-xs text-muted-foreground">Used for login</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new_phone">Phone Number</Label>
+                                        <Input
+                                            id="new_phone"
+                                            type="tel"
+                                            value={newUser.phone}
+                                            onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                                            placeholder="+91 98765 43210"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="new_password">Password *</Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="new_password"
+                                            type={showPassword ? "text" : "password"}
+                                            value={newUser.password}
+                                            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                                            placeholder="Enter password"
+                                            required
+                                            className="pr-10"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                        >
+                                            {showPassword ? (
+                                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                            ) : (
+                                                <Eye className="h-4 w-4 text-muted-foreground" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Minimum 6 characters
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="new_full_name">Full Name</Label>
+                                    <Input
+                                        id="new_full_name"
+                                        value={newUser.full_name}
+                                        onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                                        placeholder="Enter full name"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="new_dob">Birth Date</Label>
+                                    <Input
+                                        id="new_dob"
+                                        type="date"
+                                        value={newUser.date_of_birth}
+                                        onChange={(e) => setNewUser({ ...newUser, date_of_birth: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="new_role">Role *</Label>
+                                    <Select
+                                        value={newUser.role}
+                                        onValueChange={(value: any) => setNewUser({ ...newUser, role: value as any })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="admin">Admin - Full system access</SelectItem>
+                                            <SelectItem value="hr">HR - Employee and content management</SelectItem>
+                                            <SelectItem value="employee">Employee - Basic access</SelectItem>
+                                            <SelectItem value="client">Client - Project tracking access</SelectItem>
+                                            <SelectItem value="bde">BDE - Sales & Client Management</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        User will be redirected to their role-specific panel upon login
+                                    </p>
+                                </div>
+
+                                {newUser.role === 'client' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new_client">Company *</Label>
+                                        <Select
+                                            value={newUser.client_id}
+                                            onValueChange={(value: string) => setNewUser({ ...newUser, client_id: value })}
+                                        >
+                                            <SelectTrigger id="new_client">
+                                                <SelectValue placeholder="Select company" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {clients.map((client: Client) => (
+                                                    <SelectItem key={client.id} value={client.id}>
+                                                        {client.company_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                                {newUser.role !== 'client' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new_department">Department</Label>
+                                            <Select
+                                                value={newUser.department || 'none'}
+                                                onValueChange={(value: string) => {
+                                                    setNewUser({ ...newUser, department: value === 'none' ? '' : value, designation_id: '' });
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select department" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">No Department</SelectItem>
+                                                    {departments.map((dept: Department) => (
+                                                        <SelectItem key={dept.id} value={dept.name}>
+                                                            {dept.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new_designation">Designation</Label>
+                                            <Select
+                                                value={newUser.designation_id || 'none'}
+                                                onValueChange={(value: string) => setNewUser({ ...newUser, designation_id: value === 'none' ? '' : value })}
+                                                disabled={!newUser.department}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={newUser.department ? "Select designation" : "Select department first"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">No Designation</SelectItem>
+                                                    {designations
+                                                        .filter((d: Designation) => {
+                                                            const dept = departments.find((dep: Department) => dep.name === newUser.department);
+                                                            return !d.department_id || d.department_id === dept?.id;
+                                                        })
+                                                        .map((desig: Designation) => (
+                                                            <SelectItem key={desig.id} value={desig.id}>
+                                                                {desig.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </>
+                                )}
+
+                                {(newUser.role === 'employee' || newUser.role === 'bde') && (
+                                    <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
+                                        <div className="space-y-0.5">
+                                            <Label htmlFor="new_skip_ip" className="text-base">Authorize Remote Work</Label>
+                                            <p className="text-xs text-muted-foreground">Allow clock-in/out from any network (Skip WiFi check)</p>
+                                        </div>
+                                        <Switch
+                                            id="new_skip_ip"
+                                            checked={newUser.skip_ip_restriction}
+                                            onCheckedChange={(checked) => setNewUser({ ...newUser, skip_ip_restriction: checked })}
+                                        />
+                                    </div>
+                                )}
+                            </form>
+                        </div>
+                        <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+                            <Button type="submit" form="create-user-form" disabled={creating}>
+                                {creating ? 'Creating...' : 'Create User'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                    <DialogContent className="max-w-lg w-full max-h-[90vh] flex flex-col p-0 gap-0">
+                        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+                            <DialogTitle>Edit User</DialogTitle>
+                            <DialogDescription>Update user information and role</DialogDescription>
+                        </DialogHeader>
+                        <div className="flex-1 overflow-y-auto px-6 py-4">
+                            {editUser && (
+                                <form id="edit-user-form" onSubmit={handleSave} className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label>Username</Label>
+                                        <Input value={editUser.username} disabled className="opacity-60" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_email">Email Address</Label>
+                                            <Input
+                                                id="edit_email"
+                                                type="email"
+                                                value={editUser.email || ''}
+                                                onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                                                placeholder="email@company.com"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_phone">Phone Number</Label>
+                                            <Input
+                                                id="edit_phone"
+                                                type="tel"
+                                                value={editUser.phone || ''}
+                                                onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })}
+                                                placeholder="+91 98765 43210"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="full_name">Full Name</Label>
+                                        <Input
+                                            id="full_name"
+                                            value={editUser.full_name || ''}
+                                            onChange={(e) =>
+                                                setEditUser({ ...editUser, full_name: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit_dob">Birth Date</Label>
+                                        <Input
+                                            id="edit_dob"
+                                            type="date"
+                                            value={editUser.date_of_birth || ''}
+                                            onChange={(e) =>
+                                                setEditUser({ ...editUser, date_of_birth: e.target.value })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="role">Role</Label>
+                                        <Select
+                                            value={editUser.role}
+                                            onValueChange={(value) =>
+                                                setEditUser({ ...editUser, role: value as any })
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="admin">Admin</SelectItem>
+                                                <SelectItem value="hr">HR</SelectItem>
+                                                <SelectItem value="employee">Employee</SelectItem>
+                                                <SelectItem value="bde">BDE</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {(editUser.role === 'employee' || editUser.role === 'bde') && (
+                                        <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
+                                            <div className="space-y-0.5">
+                                                <Label htmlFor="skip_ip" className="text-base">Authorize Remote Work</Label>
+                                                <p className="text-xs text-muted-foreground">Allow clock-in/out from any network (Skip WiFi check)</p>
+                                            </div>
+                                            <Switch
+                                                id="skip_ip"
+                                                checked={editUser.skip_ip_restriction}
+                                                onCheckedChange={(checked) => setEditUser({ ...editUser, skip_ip_restriction: checked })}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="department">Department</Label>
+                                        <Select
+                                            value={editUser.department || 'none'}
+                                            onValueChange={(value) =>
+                                                setEditUser({ ...editUser, department: value === 'none' ? null : value, designation_id: null })
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select department" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">No Department</SelectItem>
+                                                {departments.map((dept: Department) => (
+                                                    <SelectItem key={dept.id} value={dept.name}>
+                                                        {dept.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="designation">Designation</Label>
+                                        <Select
+                                            value={editUser.designation_id || 'none'}
+                                            onValueChange={(value) =>
+                                                setEditUser({ ...editUser, designation_id: value === 'none' ? null : value })
+                                            }
+                                            disabled={!editUser.department}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={editUser.department ? "Select designation" : "Select department first"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">No Designation</SelectItem>
+                                                {designations
+                                                    .filter((d: Designation) => {
+                                                        const dept = departments.find((dep: Department) => dep.name === editUser.department);
+                                                        return !d.department_id || d.department_id === dept?.id;
+                                                    })
+                                                    .map((desig: Designation) => (
+                                                        <SelectItem key={desig.id} value={desig.id}>
+                                                            {desig.name}
+                                                        </SelectItem>
+                                                    ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="is_active">Status</Label>
+                                        <Select
+                                            value={editUser.is_active ? 'active' : 'inactive'}
+                                            onValueChange={(value) =>
+                                                setEditUser({ ...editUser, is_active: value === 'active' })
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="active">Active</SelectItem>
+                                                <SelectItem value="inactive">Inactive</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                            <Button type="submit" form="edit-user-form">Save Changes</Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Change Password</DialogTitle>
+                            <DialogDescription>
+                                Change password for user: {selectedUser?.username}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSubmitPasswordChange} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="new_password_change">New Password *</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="new_password_change"
+                                        type={showNewPassword ? "text" : "password"}
+                                        value={passwordData.newPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                        placeholder="Enter new password"
+                                        required
+                                        className="pr-10"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                    >
+                                        {showNewPassword ? (
+                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                        ) : (
+                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                        )}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Minimum 6 characters
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="confirm_password">Confirm Password *</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="confirm_password"
+                                        type={showNewPassword ? "text" : "password"}
+                                        value={passwordData.confirmPassword}
+                                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                                        placeholder="Confirm new password"
+                                        required
+                                        className="pr-10"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                    >
+                                        {showNewPassword ? (
+                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                        ) : (
+                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setChangePasswordOpen(false)}
+                                    disabled={changingPassword}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={changingPassword}>
+                                    {changingPassword ? 'Changing...' : 'Change Password'}
+                                </Button>
+                            </div>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the user account
+                                for <span className="font-semibold text-foreground">{userToDelete?.full_name || userToDelete?.username}</span> and remove their data from our servers.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleDeleteUser}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        </AdminLayout>
+    );
+}
