@@ -1,0 +1,16 @@
+{
+  "name": "it-crm-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev-backend": "cd backend && npm run dev",
+    "dev-frontend": "cd frontend && npm run dev",
+    "dev": "npx concurrently \"npm run dev-backend\" \"npm run dev-frontend\"",
+    "build-frontend": "cd frontend && npm run build",
+    "prod-backend": "pm2 start ecosystem.config.cjs --env production"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

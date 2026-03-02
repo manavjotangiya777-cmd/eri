@@ -1,6 +1,19 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost/Manav Admin 1/api';
+const getApiBaseUrl = () => {
+    if (import.meta.env.VITE_API_URL) {
+        return import.meta.env.VITE_API_URL;
+    }
+
+    // In production, if served from the same domain
+    if (import.meta.env.PROD) {
+        return `${window.location.origin}/api`;
+    }
+
+    return 'http://localhost:5000/api'; // Standard dev fallback
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
