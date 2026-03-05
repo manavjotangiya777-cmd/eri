@@ -368,8 +368,8 @@ export default function UserManagement() {
                 </div>
 
                 <Card>
-                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-4 px-4 sm:px-6">
-                        <CardTitle className="text-lg font-bold">All Users</CardTitle>
+                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-6 px-6 pt-6">
+                        <CardTitle className="text-xl font-bold text-slate-900">All User Directory</CardTitle>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                             <div className="flex items-center gap-2 text-muted-foreground mb-1 sm:mb-0">
                                 <Filter className="h-4 w-4" />
@@ -397,18 +397,18 @@ export default function UserManagement() {
                         {loading ? (
                             <div className="text-center py-8">Loading...</div>
                         ) : (
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto sm:overflow-visible">
                                 <Table>
-                                    <TableHeader className="bg-slate-50/50">
-                                        <TableRow className="hover:bg-transparent text-nowrap">
-                                            <TableHead className="min-w-[120px]">Username</TableHead>
-                                            <TableHead className="min-w-[150px]">Full Name</TableHead>
-                                            <TableHead className="min-w-[100px]">Role</TableHead>
-                                            <TableHead className="min-w-[120px]">Department</TableHead>
-                                            <TableHead className="min-w-[150px]">Designation</TableHead>
-                                            <TableHead className="min-w-[100px]">Status</TableHead>
-                                            <TableHead className="min-w-[140px]">Remote Auth</TableHead>
-                                            <TableHead className="min-w-[100px] text-right pr-4">Actions</TableHead>
+                                    <TableHeader className="bg-slate-50/50 border-b">
+                                        <TableRow className="hover:bg-transparent border-none">
+                                            <TableHead className="font-bold text-slate-900 py-4">Username</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4">Full Name</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4">Role</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4">Department</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4">Designation</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4">Status</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4">Remote Auth</TableHead>
+                                            <TableHead className="font-bold text-slate-900 py-4 text-right pr-6">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
