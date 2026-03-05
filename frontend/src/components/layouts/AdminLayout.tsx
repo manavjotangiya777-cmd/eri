@@ -83,9 +83,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             {settings?.company_logo ? (
-              <img 
-                src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`} 
-                alt="Logo" 
+              <img
+                src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`}
+                alt="Logo"
                 className="h-8 w-auto object-contain max-w-[150px] mt-2"
               />
             ) : (
@@ -97,7 +97,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </>
             )}
           </div>
-          <p className="text-xs text-sidebar-foreground/70 mt-2 font-medium tracking-wide uppercase">Admin Panel</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-[10px] text-sidebar-foreground/70 font-bold tracking-widest uppercase">Admin Panel</p>
+            <Badge variant="outline" className="border-sidebar-foreground/20 text-sidebar-foreground/50 text-[10px] h-4 font-normal">v1-updated</Badge>
+          </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {adminNavItems.map((item) => {
@@ -133,20 +136,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <aside className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 z-20 w-64 bg-sidebar border-r border-sidebar-border overflow-y-auto">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50/30">
+      <aside className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 z-20 w-64 bg-sidebar border-r border-sidebar-border overflow-y-auto shadow-xl">
         <NavContent />
       </aside>
 
-      <div className="flex-1 flex flex-col lg:ml-64 min-h-screen">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 lg:px-6">
+      <div className="flex-1 flex flex-col lg:ml-64 min-h-screen relative min-w-0">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white/80 backdrop-blur-md px-4 lg:px-8 shadow-sm">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
-                <Menu className="h-6 w-6" />
+              <Button variant="ghost" size="icon" className="lg:hidden hover:bg-slate-100 rounded-full">
+                <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0 bg-sidebar">
+            <SheetContent side="left" className="w-[85vw] sm:w-80 p-0 bg-sidebar border-none shadow-2xl">
               <NavContent />
             </SheetContent>
           </Sheet>
@@ -193,7 +196,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </DropdownMenu>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">{children}</main>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-slate-50/10">
+          <div className="w-full space-y-6">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

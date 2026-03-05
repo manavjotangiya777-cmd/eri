@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const ProfileSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
@@ -24,6 +25,38 @@ const ProfileSchema = new mongoose.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
 });
+
+// Pre-save hook to hash password
+ProfileSchema.pre('save', async function (next) {
+    if (!this.isModified('password_hash')) return next();
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password_hash = await bcrypt.hash(this.password_hash, salt);
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Pre-update hook for findOneAndUpdate (handles findByIdAndUpdate)
+ProfileSchema.pre('findOneAndUpdate', async function (next) {
+    const update = this.getUpdate();
+    if (update.password_hash) {
+        try {
+            const salt = await bcrypt.genSalt(10);
+            update.password_hash = await bcrypt.hash(update.password_hash, salt);
+        } catch (err) {
+            return next(err);
+        }
+    }
+    next();
+});
+
+// Method to compare password
+ProfileSchema.methods.comparePassword = async function (candidatePassword) {
+    return await bcrypt.compare(candidatePassword, this.password_hash);
+};
 
 // Virtual for 'designation' details
 ProfileSchema.virtual('designation', {

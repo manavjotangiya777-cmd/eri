@@ -266,18 +266,20 @@ export default function DepartmentManagement() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Department Management</h1>
-          <p className="text-muted-foreground">Manage company departments and designations</p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Department Management</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">Manage company departments and designations</p>
+          </div>
         </div>
 
         <Tabs defaultValue="departments" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="departments" className="gap-2">
+          <TabsList className="w-full justify-start overflow-x-auto h-auto p-1 bg-muted/50 rounded-xl">
+            <TabsTrigger value="departments" className="gap-2 flex-1 sm:flex-none py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <Building2 className="h-4 w-4" />
               Departments
             </TabsTrigger>
-            <TabsTrigger value="designations" className="gap-2">
+            <TabsTrigger value="designations" className="gap-2 flex-1 sm:flex-none py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <Briefcase className="h-4 w-4" />
               Designations
             </TabsTrigger>
@@ -285,128 +287,136 @@ export default function DepartmentManagement() {
 
           <TabsContent value="departments">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Departments</CardTitle>
-                <Button onClick={handleCreateDepartment}>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-6">
+                <CardTitle className="text-lg font-bold">Departments</CardTitle>
+                <Button onClick={handleCreateDepartment} className="w-full sm:w-auto shadow-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Department
                 </Button>
               </CardHeader>
               <CardContent>
-                {departments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-lg font-medium">No departments found</p>
-                    <p className="text-sm text-muted-foreground">Create your first department to get started</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {departments.map((dept) => (
-                        <TableRow key={dept.id}>
-                          <TableCell className="font-medium">{dept.name}</TableCell>
-                          <TableCell>{dept.description || '-'}</TableCell>
-                          <TableCell>
-                            <Badge variant={dept.is_active ? 'default' : 'secondary'}>
-                              {dept.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditDepartment(dept)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteDepartment(dept.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                <div className="overflow-x-auto -mx-6 px-6 pb-2">
+                  {departments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-lg font-medium">No departments found</p>
+                      <p className="text-sm text-muted-foreground">Create your first department to get started</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="text-nowrap">
+                          <TableHead className="min-w-[150px]">Name</TableHead>
+                          <TableHead className="min-w-[200px]">Description</TableHead>
+                          <TableHead className="min-w-[100px]">Status</TableHead>
+                          <TableHead className="min-w-[100px] text-right">Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+                      </TableHeader>
+                      <TableBody>
+                        {departments.map((dept) => (
+                          <TableRow key={dept.id} className="group hover:bg-slate-50/50">
+                            <TableCell className="font-semibold text-slate-900">{dept.name}</TableCell>
+                            <TableCell className="text-slate-600 truncate max-w-[200px]">{dept.description || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant={dept.is_active ? 'default' : 'secondary'} className="shadow-none">
+                                {dept.is_active ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full hover:bg-white hover:shadow-sm"
+                                  onClick={() => handleEditDepartment(dept)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => handleDeleteDepartment(dept.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="designations">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Designations</CardTitle>
-                <Button onClick={handleCreateDesignation}>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-6">
+                <CardTitle className="text-lg font-bold">Designations</CardTitle>
+                <Button onClick={handleCreateDesignation} className="w-full sm:w-auto shadow-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Designation
                 </Button>
               </CardHeader>
               <CardContent>
-                {designations.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-lg font-medium">No designations found</p>
-                    <p className="text-sm text-muted-foreground">Create your first designation to get started</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {designations.map((desig) => (
-                        <TableRow key={desig.id}>
-                          <TableCell className="font-medium">{desig.name}</TableCell>
-                          <TableCell>{desig.departments?.name || '-'}</TableCell>
-                          <TableCell>{desig.description || '-'}</TableCell>
-                          <TableCell>
-                            <Badge variant={desig.is_active ? 'default' : 'secondary'}>
-                              {desig.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditDesignation(desig)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteDesignation(desig.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                <div className="overflow-x-auto -mx-6 px-6 pb-2">
+                  {designations.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-lg font-medium">No designations found</p>
+                      <p className="text-sm text-muted-foreground">Create your first designation to get started</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="text-nowrap">
+                          <TableHead className="min-w-[150px]">Name</TableHead>
+                          <TableHead className="min-w-[150px]">Department</TableHead>
+                          <TableHead className="min-w-[200px]">Description</TableHead>
+                          <TableHead className="min-w-[100px]">Status</TableHead>
+                          <TableHead className="min-w-[100px] text-right">Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+                      </TableHeader>
+                      <TableBody>
+                        {designations.map((desig) => (
+                          <TableRow key={desig.id} className="group hover:bg-slate-50/50">
+                            <TableCell className="font-semibold text-slate-900">{desig.name}</TableCell>
+                            <TableCell className="text-slate-600">{desig.departments?.name || '-'}</TableCell>
+                            <TableCell className="text-slate-600 truncate max-w-[200px]">{desig.description || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant={desig.is_active ? 'default' : 'secondary'} className="shadow-none">
+                                {desig.is_active ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full hover:bg-white hover:shadow-sm"
+                                  onClick={() => handleEditDesignation(desig)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => handleDeleteDesignation(desig.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -414,134 +424,141 @@ export default function DepartmentManagement() {
 
         {/* Department Dialog */}
         <Dialog open={departmentDialogOpen} onOpenChange={setDepartmentDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingDepartment ? 'Edit Department' : 'Create Department'}</DialogTitle>
+          <DialogContent className="sm:max-w-[600px] w-[95vw] p-0 flex flex-col gap-0 rounded-xl overflow-hidden shadow-2xl border-none max-h-[95vh] sm:max-h-[90vh]">
+            <DialogHeader className="px-6 py-4 border-b bg-slate-50/80 shrink-0">
+              <DialogTitle className="text-xl font-bold">{editingDepartment ? 'Edit Department' : 'Create Department'}</DialogTitle>
               <DialogDescription>
                 {editingDepartment ? 'Update department information' : 'Add a new department to your organization'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSaveDepartment} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="dept_name">Department Name *</Label>
-                <Input
-                  id="dept_name"
-                  value={departmentForm.name}
-                  onChange={(e) => setDepartmentForm({ ...departmentForm, name: e.target.value })}
-                  placeholder="e.g., Engineering, Sales, HR"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dept_description">Description</Label>
-                <Textarea
-                  id="dept_description"
-                  value={departmentForm.description}
-                  onChange={(e) => setDepartmentForm({ ...departmentForm, description: e.target.value })}
-                  placeholder="Brief description of the department"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dept_status">Status</Label>
-                <Select
-                  value={departmentForm.is_active ? 'active' : 'inactive'}
-                  onValueChange={(value) => setDepartmentForm({ ...departmentForm, is_active: value === 'active' })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDepartmentDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingDepartment ? 'Update' : 'Create'}
-                </Button>
-              </div>
-            </form>
+            <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+              <form id="dept-form" onSubmit={handleSaveDepartment} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="dept_name" className="text-sm font-semibold">Department Name *</Label>
+                  <Input
+                    id="dept_name"
+                    value={departmentForm.name}
+                    onChange={(e) => setDepartmentForm({ ...departmentForm, name: e.target.value })}
+                    placeholder="e.g., Engineering, Sales, HR"
+                    required
+                    className="h-11 shadow-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dept_description" className="text-sm font-semibold">Description</Label>
+                  <Textarea
+                    id="dept_description"
+                    value={departmentForm.description}
+                    onChange={(e) => setDepartmentForm({ ...departmentForm, description: e.target.value })}
+                    placeholder="Brief description of the department"
+                    rows={3}
+                    className="shadow-sm resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dept_status" className="text-sm font-semibold">Status</Label>
+                  <Select
+                    value={departmentForm.is_active ? 'active' : 'inactive'}
+                    onValueChange={(value) => setDepartmentForm({ ...departmentForm, is_active: value === 'active' })}
+                  >
+                    <SelectTrigger className="h-11 shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </form>
+            </div>
+            <div className="p-4 border-t bg-slate-50/80 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDepartmentDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="dept-form" className="px-8 bg-slate-900 font-bold">
+                {editingDepartment ? 'Update' : 'Create'}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
-        {/* Designation Dialog */}
         <Dialog open={designationDialogOpen} onOpenChange={setDesignationDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingDesignation ? 'Edit Designation' : 'Create Designation'}</DialogTitle>
+          <DialogContent className="sm:max-w-[600px] w-[95vw] p-0 flex flex-col gap-0 rounded-xl overflow-hidden shadow-2xl border-none max-h-[95vh] sm:max-h-[90vh]">
+            <DialogHeader className="px-6 py-4 border-b bg-slate-50/80 shrink-0">
+              <DialogTitle className="text-xl font-bold">{editingDesignation ? 'Edit Designation' : 'Create Designation'}</DialogTitle>
               <DialogDescription>
                 {editingDesignation ? 'Update designation information' : 'Add a new designation/position'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSaveDesignation} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="desig_name">Designation Name *</Label>
-                <Input
-                  id="desig_name"
-                  value={designationForm.name}
-                  onChange={(e) => setDesignationForm({ ...designationForm, name: e.target.value })}
-                  placeholder="e.g., Software Engineer, Manager"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desig_department">Department</Label>
-                <Select
-                  value={designationForm.department_id || 'none'}
-                  onValueChange={(value) => setDesignationForm({ ...designationForm, department_id: value === 'none' ? '' : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Department</SelectItem>
-                    {departments.filter(d => d.is_active).map((dept) => (
-                      <SelectItem key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desig_description">Description</Label>
-                <Textarea
-                  id="desig_description"
-                  value={designationForm.description}
-                  onChange={(e) => setDesignationForm({ ...designationForm, description: e.target.value })}
-                  placeholder="Brief description of the designation"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desig_status">Status</Label>
-                <Select
-                  value={designationForm.is_active ? 'active' : 'inactive'}
-                  onValueChange={(value) => setDesignationForm({ ...designationForm, is_active: value === 'active' })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDesignationDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingDesignation ? 'Update' : 'Create'}
-                </Button>
-              </div>
-            </form>
+            <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+              <form id="desig-form" onSubmit={handleSaveDesignation} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="desig_name" className="text-sm font-semibold">Designation Name *</Label>
+                  <Input
+                    id="desig_name"
+                    value={designationForm.name}
+                    onChange={(e) => setDesignationForm({ ...designationForm, name: e.target.value })}
+                    placeholder="e.g., Software Engineer, Manager"
+                    required
+                    className="h-11 shadow-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="desig_department" className="text-sm font-semibold">Department</Label>
+                  <Select
+                    value={designationForm.department_id || 'none'}
+                    onValueChange={(value) => setDesignationForm({ ...designationForm, department_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger className="h-11 shadow-sm">
+                      <SelectValue placeholder="Select department (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Department</SelectItem>
+                      {departments.filter(d => d.is_active).map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="desig_description" className="text-sm font-semibold">Description</Label>
+                  <Textarea
+                    id="desig_description"
+                    value={designationForm.description}
+                    onChange={(e) => setDesignationForm({ ...designationForm, description: e.target.value })}
+                    placeholder="Brief description of the designation"
+                    rows={3}
+                    className="shadow-sm resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="desig_status" className="text-sm font-semibold">Status</Label>
+                  <Select
+                    value={designationForm.is_active ? 'active' : 'inactive'}
+                    onValueChange={(value) => setDesignationForm({ ...designationForm, is_active: value === 'active' })}
+                  >
+                    <SelectTrigger className="h-11 shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </form>
+            </div>
+            <div className="p-4 border-t bg-slate-50/80 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDesignationDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="desig-form" className="px-8 bg-slate-900 font-bold">
+                {editingDesignation ? 'Update' : 'Create'}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

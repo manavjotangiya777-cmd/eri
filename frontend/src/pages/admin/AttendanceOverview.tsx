@@ -147,7 +147,6 @@ export default function AttendanceOverview() {
     return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 font-semibold">On Time</Badge>;
   };
 
-  const today = new Date().toISOString().split('T')[0];
   const absentCount = absences.filter(ab => {
     const uid = ab.user_id?._id?.toString() || ab.user_id?.toString?.() || '';
     return !attendanceKeys.has(`${uid}_${ab.date}`);
@@ -156,16 +155,16 @@ export default function AttendanceOverview() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Attendance Overview</h1>
-            <p className="text-muted-foreground">Monitor employee attendance and absences</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Attendance Overview</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">Monitor employee attendance and absences</p>
           </div>
-          <Calendar className="h-8 w-8 text-primary" />
+          <Calendar className="h-8 w-8 text-primary hidden sm:block" />
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Records</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold">{attendance.length}</div></CardContent>
@@ -198,21 +197,21 @@ export default function AttendanceOverview() {
             ) : mergedRows.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">No records found.</div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto -mx-6 px-6 pb-2">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Clock In</TableHead>
-                      <TableHead>Clock Out</TableHead>
-                      <TableHead>Work Hours</TableHead>
-                      <TableHead>Break Hours</TableHead>
-                      <TableHead>Status</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="text-nowrap">
+                      <TableHead className="font-bold min-w-[150px]">Employee</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Date</TableHead>
+                      <TableHead className="font-bold min-w-[100px]">Clock In</TableHead>
+                      <TableHead className="font-bold min-w-[100px]">Clock Out</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Work Hours</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Break Hours</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mergedRows.map((row, idx) => {
+                    {mergedRows.map((row) => {
                       if (row.kind === 'absent') {
                         return (
                           <TableRow

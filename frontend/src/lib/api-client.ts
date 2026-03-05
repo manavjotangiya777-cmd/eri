@@ -10,7 +10,7 @@ const getApiBaseUrl = () => {
         return `${window.location.origin}/api`;
     }
 
-    return 'http://localhost:5000/api'; // Standard dev fallback
+    return 'https://eri.errorinfotech.in:5001/api'; // Standard fallback set to production endpoint
 };
 
 const API_BASE_URL = getApiBaseUrl();

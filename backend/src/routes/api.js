@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -56,13 +57,15 @@ const ensureOfficeNetwork = async (req, res, next) => {
         // If no IPs configured, allow all (don't lock out everyone by default)
         if (allowedIps.length === 0) return next();
 
-        let userIp = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].replace('::ffff:', '').trim();
+        let userIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '').split(',')[0].replace('::ffff:', '').trim();
         if (userIp === '::1') userIp = '127.0.0.1';
 
-        if (!allowedIps.includes(userIp) && !allowedIps.includes(req.ip)) {
+        console.log(`[Network Restriction Check] User: ${user.username}, Role: ${user.role}, Attempting from IP: ${userIp}`);
+
+        if (!allowedIps.includes(userIp)) {
             return res.status(403).json({
                 error: 'Restricted Action',
-                message: `Clock In/Out allowed only from office WiFi. (Detected IP: ${userIp})`
+                message: `Action allowed only from office WiFi. (Detected IP: ${userIp})`
             });
         }
         next();
@@ -163,10 +166,18 @@ router.post('/login', async (req, res) => {
         if (!user) {
             user = await Profile.findOne({ username });
         }
-
-        if (!user || user.password_hash !== password) {
+        if (!user) {
+            console.log(`Login failed: User not found - ${username}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        // Secure password comparison
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            console.log(`Login failed: Password mismatch for user - ${user.username}`);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        console.log(`Login successful: ${user.username}`);
 
         const commonChat = await Chat.findOne({ group_name: 'Common Group', chat_type: 'group' });
         if (commonChat) {
@@ -326,7 +337,7 @@ router.post('/attendance/clock-out', ensureOfficeNetwork, async (req, res) => {
     }
 });
 
-router.post('/attendance/break-in', async (req, res) => {
+router.post('/attendance/break-in', ensureOfficeNetwork, async (req, res) => {
     try {
         const { user_id } = req.body;
         const now = new Date();
@@ -346,7 +357,7 @@ router.post('/attendance/break-in', async (req, res) => {
     }
 });
 
-router.post('/attendance/break-out', async (req, res) => {
+router.post('/attendance/break-out', ensureOfficeNetwork, async (req, res) => {
     try {
         const { user_id } = req.body;
         const now = new Date();
@@ -1279,9 +1290,9 @@ router.post('/messages/read', async (req, res) => {
         // Also mark related chat notifications as read for this user
         // Match chat_id as both string and ObjectId to be safe
         await Notification.updateMany(
-            { 
-                target_user: userObjId, 
-                type: 'chat', 
+            {
+                target_user: userObjId,
+                type: 'chat',
                 $or: [
                     { 'meta.chat_id': chat_id.toString() },
                     { 'meta.chat_id': chatObjId }
@@ -1406,7 +1417,7 @@ router.post('/admin/create-user', async (req, res) => {
         // Build user data with proper casting
         const userData = {
             username,
-            password_hash: password, // In this app, password_hash stores the raw password for now (must hash in production!)
+            password_hash: password,
             role: role || 'employee',
             full_name: full_name || null,
             email: email ? email.toLowerCase().trim() : null,
@@ -1433,6 +1444,32 @@ router.post('/admin/create-user', async (req, res) => {
     } catch (err) {
         console.error('Admin create user error:', err);
         res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+// Admin: Change password
+router.post('/admin/change-password', async (req, res) => {
+    try {
+        const { userId, newPassword } = req.body;
+        console.log(`Admin password reset attempt for userId: ${userId}`);
+
+        if (!userId || !newPassword) {
+            return res.status(400).json({ error: 'userId and newPassword are required' });
+        }
+
+        const user = await Profile.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Setting password_hash directly and calling save() will trigger the pre-save hook
+        user.password_hash = newPassword;
+        await user.save();
+
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { getAllInvoices, getAllClients, updateInvoice } from '@/db/api';
 import { Invoice, Client } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, CheckCircle, XCircle, Clock, IndianRupee, Users, AlertCircle, Search, Download } from 'lucide-react';
+import { Receipt, CheckCircle, Clock, IndianRupee, AlertCircle, Search, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { API_URL } from '@/config';
 
@@ -54,8 +54,8 @@ export default function InvoiceManagement({ Layout = AdminLayout }: InvoiceManag
 
   const filteredInvoices = invoices.filter(inv => {
     const client = clients.find(c => c.id === inv.client_id);
-    return inv.invoice_number.toLowerCase().includes(search.toLowerCase()) || 
-           client?.company_name.toLowerCase().includes(search.toLowerCase());
+    return inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
+      client?.company_name.toLowerCase().includes(search.toLowerCase());
   });
 
   const totalBilled = invoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
@@ -97,7 +97,7 @@ export default function InvoiceManagement({ Layout = AdminLayout }: InvoiceManag
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">₹{totalPaid.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">{Math.round((totalPaid/totalBilled)*100 || 0)}% recovery rate</p>
+              <p className="text-xs text-muted-foreground mt-1">{Math.round((totalPaid / totalBilled) * 100 || 0)}% recovery rate</p>
             </CardContent>
           </Card>
           <Card className="border-none shadow-md bg-white dark:bg-card">
@@ -121,9 +121,9 @@ export default function InvoiceManagement({ Layout = AdminLayout }: InvoiceManag
               </div>
               <div className="relative w-full md:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search invoices or clients..." 
-                  className="pl-9 bg-background" 
+                <Input
+                  placeholder="Search invoices or clients..."
+                  className="pl-9 bg-background"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -137,81 +137,83 @@ export default function InvoiceManagement({ Layout = AdminLayout }: InvoiceManag
                 <p className="text-muted-foreground">Loading invoice data...</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow>
-                    <TableHead className="font-bold">Invoice #</TableHead>
-                    <TableHead className="font-bold">Client</TableHead>
-                    <TableHead className="font-bold">Amount</TableHead>
-                    <TableHead className="font-bold">Due Date</TableHead>
-                    <TableHead className="font-bold">Status</TableHead>
-                    <TableHead className="text-right font-bold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInvoices.length === 0 ? (
+              <div className="overflow-x-auto -mx-6 px-6 pb-2">
+                <Table>
+                  <TableHeader className="bg-muted/30 text-nowrap">
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">
-                        No invoices found matching your criteria.
-                      </TableCell>
+                      <TableHead className="font-bold min-w-[120px]">Invoice #</TableHead>
+                      <TableHead className="font-bold min-w-[200px]">Client</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Amount</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Due Date</TableHead>
+                      <TableHead className="font-bold min-w-[100px]">Status</TableHead>
+                      <TableHead className="text-right font-bold min-w-[160px]">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredInvoices.map((inv) => {
-                      const client = clients.find(c => c.id === inv.client_id);
-                      return (
-                        <TableRow key={inv.id} className="hover:bg-muted/10 transition-colors">
-                          <TableCell className="font-mono font-bold text-primary">{inv.invoice_number}</TableCell>
-                          <TableCell>
-                            <div className="font-bold">{client?.company_name || 'Unknown Client'}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{client?.contact_person}</div>
-                          </TableCell>
-                          <TableCell className="font-mono font-black">₹{inv.amount.toLocaleString()}</TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
-                              {inv.due_date || 'N/A'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                              inv.status === 'paid' ? 'default' : 
-                              inv.status === 'sent' ? 'secondary' : 
-                              inv.status === 'cancelled' ? 'destructive' : 'outline'
-                            } className="uppercase text-[10px] font-bold tracking-tighter h-5">
-                              {inv.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              {inv.status !== 'paid' && (
-                                <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-600 hover:bg-green-50" onClick={() => handleStatusChange(inv.id, 'paid')}>
-                                  <CheckCircle className="h-4 w-4 mr-1.5" />
-                                  Paid
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvoices.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">
+                          No invoices found matching your criteria.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredInvoices.map((inv) => {
+                        const client = clients.find(c => c.id === inv.client_id);
+                        return (
+                          <TableRow key={inv.id} className="hover:bg-muted/10 transition-colors">
+                            <TableCell className="font-mono font-bold text-primary">{inv.invoice_number}</TableCell>
+                            <TableCell>
+                              <div className="font-bold">{client?.company_name || 'Unknown Client'}</div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{client?.contact_person}</div>
+                            </TableCell>
+                            <TableCell className="font-mono font-black">₹{inv.amount.toLocaleString()}</TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                {inv.due_date || 'N/A'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                inv.status === 'paid' ? 'default' :
+                                  inv.status === 'sent' ? 'secondary' :
+                                    inv.status === 'cancelled' ? 'destructive' : 'outline'
+                              } className="uppercase text-[10px] font-bold tracking-tighter h-5">
+                                {inv.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {inv.status !== 'paid' && (
+                                  <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-600 hover:bg-green-50" onClick={() => handleStatusChange(inv.id, 'paid')}>
+                                    <CheckCircle className="h-4 w-4 mr-1.5" />
+                                    Paid
+                                  </Button>
+                                )}
+                                {inv.status === 'draft' && (
+                                  <Button size="sm" variant="outline" className="h-8" onClick={() => handleStatusChange(inv.id, 'sent')}>
+                                    <Clock className="h-4 w-4 mr-1.5" />
+                                    Send
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-primary"
+                                  onClick={() => window.open(`${API_URL}/invoices/${inv.id}/download`, '_blank')}
+                                  title="Download Invoice"
+                                >
+                                  <Download className="h-4 w-4" />
                                 </Button>
-                              )}
-                              {inv.status === 'draft' && (
-                                <Button size="sm" variant="outline" className="h-8" onClick={() => handleStatusChange(inv.id, 'sent')}>
-                                  <Clock className="h-4 w-4 mr-1.5" />
-                                  Send
-                                </Button>
-                              )}
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-primary"
-                                onClick={() => window.open(`${API_URL}/invoices/${inv.id}/download`, '_blank')}
-                                title="Download Invoice"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
           {!loading && filteredInvoices.length > 0 && (

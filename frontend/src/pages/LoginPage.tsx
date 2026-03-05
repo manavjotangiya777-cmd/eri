@@ -65,18 +65,18 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen bg-white relative">
-      {/* Global Logo Position: Top Left */}
-      <div className="absolute top-8 left-8 z-50">
+      {/* Global Logo Position: Top Left / Top Center on Mobile */}
+      <div className="absolute top-6 left-6 lg:top-8 lg:left-8 z-50 w-full lg:w-auto flex justify-start pr-12 lg:pr-0">
         {settings?.company_logo ? (
           <img
             src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`}
             alt="Logo"
-            className="h-12 w-auto object-contain lg:brightness-0 lg:invert"
+            className="h-10 lg:h-12 w-auto object-contain brightness-100 lg:brightness-0 lg:invert transition-all"
           />
         ) : (
           <div className="flex items-center gap-2">
-            <Building2 className="h-8 w-8 text-primary lg:text-white" />
-            <span className="font-bold text-xl lg:text-white">
+            <Building2 className="h-7 w-7 lg:h-8 lg:w-8 text-slate-800 lg:text-white" />
+            <span className="font-bold text-lg lg:text-xl text-slate-900 lg:text-white">
               {settings?.company_name || 'error Infotech'}
             </span>
           </div>
