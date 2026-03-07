@@ -79,6 +79,7 @@ export default function UserManagement() {
         client_id: '',
         date_of_birth: '',
         skip_ip_restriction: false,
+        shift_type: 'full_day' as 'full_day' | 'half_day',
     });
 
     const [passwordData, setPasswordData] = useState({
@@ -240,6 +241,7 @@ export default function UserManagement() {
                 client_id: editUser.client_id,
                 is_active: editUser.is_active,
                 skip_ip_restriction: editUser.skip_ip_restriction,
+                shift_type: editUser.shift_type,
                 date_of_birth: editUser.date_of_birth,
             });
             toast({
@@ -307,6 +309,7 @@ export default function UserManagement() {
                     department: newUser.department || null,
                     designation_id: newUser.designation_id || null,
                     client_id: newUser.client_id || null,
+                    shift_type: newUser.shift_type,
                     date_of_birth: newUser.date_of_birth || null,
                 });
             }
@@ -328,6 +331,7 @@ export default function UserManagement() {
                 client_id: '',
                 date_of_birth: '',
                 skip_ip_restriction: false,
+                shift_type: 'full_day',
             });
             setCreateOpen(false);
             loadUsers();
@@ -593,6 +597,31 @@ export default function UserManagement() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="shift_type" className="text-sm font-semibold text-primary">Work Shift Profile</Label>
+                                    <Select
+                                        value={newUser.shift_type}
+                                        onValueChange={(value: any) => setNewUser({ ...newUser, shift_type: value })}
+                                    >
+                                        <SelectTrigger className="h-11 shadow-sm border-primary/20">
+                                            <SelectValue placeholder="Select shift profile" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="full_day">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">Full Day Profile</span>
+                                                    <span className="text-[10px] text-muted-foreground">Standard company working hours</span>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="half_day">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">Half Day Profile</span>
+                                                    <span className="text-[10px] text-muted-foreground">Reduced hours / Half day schedule</span>
+                                                </div>
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
                                 {newUser.role === 'client' && (
                                     <div className="space-y-2">
@@ -763,6 +792,21 @@ export default function UserManagement() {
                                                 <SelectItem value="hr">HR</SelectItem>
                                                 <SelectItem value="employee">Employee</SelectItem>
                                                 <SelectItem value="bde">BDE</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit_shift_type" className="text-sm font-semibold text-primary">Work Shift Profile</Label>
+                                        <Select
+                                            value={editUser.shift_type}
+                                            onValueChange={(value: any) => setEditUser({ ...editUser, shift_type: value })}
+                                        >
+                                            <SelectTrigger className="h-11 shadow-sm border-primary/20">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="full_day">Full Day Profile</SelectItem>
+                                                <SelectItem value="half_day">Half Day Profile</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>

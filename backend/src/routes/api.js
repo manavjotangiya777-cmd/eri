@@ -263,22 +263,51 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
         if (record) {
             if (record.currentSessionOpen) return res.status(400).json({ error: 'Already working' });
             if (record.status === 'on_break') return res.status(400).json({ error: 'Cannot clock in while on break' });
+
+            // If the record exists but lateness wasn't calculated (e.g. manually created record or previous clock-out), 
+            // and this is the FIRST session of the day, calculate it now.
+            if (!record.is_late && record.sessions.length === 0) {
+                const settings = await SystemSettings.findOne() || {};
+                const user = await Profile.findById(user_id);
+                const shiftType = user?.shift_type || 'full_day';
+
+                const startTime = shiftType === 'half_day' ? settings.half_day_start_time : settings.work_start_time;
+                const threshold = shiftType === 'half_day' ? (settings.half_day_late_threshold || 0) : (settings.late_threshold_minutes || 0);
+
+                if (startTime) {
+                    const [h, m] = startTime.split(':').map(Number);
+                    const workStart = new Date(now);
+                    workStart.setHours(h, m, 0, 0);
+                    const lateLimit = new Date(workStart.getTime() + (threshold * 60000));
+
+                    if (now > lateLimit) {
+                        record.is_late = true;
+                        record.late_minutes = Math.floor((now.getTime() - workStart.getTime()) / 60000);
+                    }
+                }
+            }
         } else {
             // Check for lateness on first clock-in of the day
             const settings = await SystemSettings.findOne() || {};
+            const user = await Profile.findById(user_id);
+            const shiftType = user?.shift_type || 'full_day';
+
+            const startTime = shiftType === 'half_day' ? settings.half_day_start_time : settings.work_start_time;
+            const threshold = shiftType === 'half_day' ? (settings.half_day_late_threshold || 0) : (settings.late_threshold_minutes || 0);
+
             let is_late = false;
             let late_minutes = 0;
 
-            if (settings.work_start_time) {
-                const [h, m] = settings.work_start_time.split(':').map(Number);
+            if (startTime) {
+                const [h, m] = startTime.split(':').map(Number);
                 const workStart = new Date(now);
                 workStart.setHours(h, m, 0, 0);
-                const threshold = settings.late_threshold_minutes || 0;
-                const lateLimit = new Date(workStart.getTime() + threshold * 60000);
+
+                const lateLimit = new Date(workStart.getTime() + (threshold * 60000));
 
                 if (now > lateLimit) {
                     is_late = true;
-                    late_minutes = Math.floor((now - workStart) / 60000);
+                    late_minutes = Math.floor((now.getTime() - workStart.getTime()) / 60000);
                 }
             }
 
@@ -532,6 +561,20 @@ router.post('/absences/generate', async (req, res) => {
                     reason = 'approved_leave';
                     leave_id = onLeave._id;
                 } else if (!hasAttendance) {
+                    // USER REQUEST: Only mark as absent for TODAY if shift has already ended
+                    if (date === today) {
+                        const shiftEnd = employee.shift_type === 'half_day' ? settings.half_day_end_time : settings.work_end_time;
+                        if (shiftEnd) {
+                            const [h, m] = shiftEnd.split(':').map(Number);
+                            const now = new Date();
+                            const endTime = new Date();
+                            endTime.setHours(h, m, 0, 0);
+
+                            if (now < endTime) {
+                                continue; // Shift hasn't ended yet, don't mark as absent
+                            }
+                        }
+                    }
                     reason = 'no_clockin';
                 }
 

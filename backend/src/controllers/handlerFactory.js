@@ -42,14 +42,23 @@ exports.getAll = (Model, populateOptions) => catchAsync(async (req, res) => {
     Object.keys(queryObj).forEach(key => {
         const val = queryObj[key];
         if (typeof val === 'string' && mongoose.Types.ObjectId.isValid(val)) {
-            // If key ends with _id or is a known foreign key field
             if (key.endsWith('_id') || ['assigned_to', 'created_by', 'user_id', 'participant_1', 'participant_2', 'sender_id', 'chat_id'].includes(key)) {
-                // Use $in to match both ObjectId AND String representation, 
-                // because Mixed types might store either.
                 queryObj[key] = { $in: [val, new mongoose.Types.ObjectId(val)] };
             }
         }
     });
+
+    // 1.5) Range Filtering (from/to)
+    if (req.query.from || req.query.to) {
+        const dateField = Model.schema.path('date') ? 'date' : (Model.schema.path('created_at') ? 'created_at' : null);
+        if (dateField) {
+            queryObj[dateField] = {};
+            if (req.query.from) queryObj[dateField].$gte = req.query.from;
+            if (req.query.to) queryObj[dateField].$lte = req.query.to;
+            delete queryObj.from;
+            delete queryObj.to;
+        }
+    }
 
     // 2) Execution
     let query = Model.find(queryObj);

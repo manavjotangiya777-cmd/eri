@@ -9,10 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { getSystemSettings, updateSystemSettings } from '@/db/api';
-import type { SystemSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Settings, CalendarDays, Info, FileText, Code, Upload, Trash2, ImageIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FILE_BASE } from '@/config';
@@ -27,37 +25,6 @@ const SATURDAY_RULES: { value: SaturdayRule; label: string; description: string 
   { value: 'custom', label: 'Custom', description: 'Manually choose which week Saturdays are off' },
 ];
 
-// Get which week-of-month number a Saturday date falls on
-function getSatWeekOfMonth(date: Date): number {
-  const first = new Date(date.getFullYear(), date.getMonth(), 1);
-  let count = 0;
-  const cur = new Date(first);
-  while (cur <= date) {
-    if (cur.getDay() === 6) count++;
-    cur.setDate(cur.getDate() + 1);
-  }
-  return count;
-}
-
-// Get all Saturdays in current month with their week numbers
-function getThisMonthSaturdays(): { date: string; weekNum: number }[] {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const sats: { date: string; weekNum: number }[] = [];
-  const cur = new Date(year, month, 1);
-  while (cur.getMonth() === month) {
-    if (cur.getDay() === 6) {
-      sats.push({
-        date: cur.toLocaleDateString('en-US', { day: '2-digit', month: 'short' }),
-        weekNum: getSatWeekOfMonth(cur),
-      });
-    }
-    cur.setDate(cur.getDate() + 1);
-  }
-  return sats;
-}
-
 export default function SystemSettingsPage() {
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -68,9 +35,9 @@ export default function SystemSettingsPage() {
     setLoading(true);
     try {
       const data = await getSystemSettings();
-      setSettings({ 
-        ...data, 
-        saturday_rule: (data as any).saturday_rule || 'all_off', 
+      setSettings({
+        ...data,
+        saturday_rule: (data as any).saturday_rule || 'all_off',
         saturday_off_weeks: (data as any).saturday_off_weeks || [],
         invoice_template: (data as any).invoice_template || '',
         company_logo: (data as any).company_logo || null
@@ -100,6 +67,10 @@ export default function SystemSettingsPage() {
         lunch_end_time: settings.lunch_end_time,
         work_hours_per_day: settings.work_hours_per_day,
         late_threshold_minutes: settings.late_threshold_minutes,
+        half_day_start_time: settings.half_day_start_time,
+        half_day_end_time: settings.half_day_end_time,
+        half_day_late_threshold: settings.half_day_late_threshold,
+        half_day_work_hours: settings.half_day_work_hours,
         saturday_rule: settings.saturday_rule,
         saturday_off_weeks: settings.saturday_off_weeks,
         invoice_template: settings.invoice_template,
@@ -136,25 +107,6 @@ export default function SystemSettingsPage() {
       toast({ title: 'Error', description: 'Failed to upload logo', variant: 'destructive' });
     }
   };
-
-  const toggleCustomWeek = (weekNum: number) => {
-    const current: number[] = settings?.saturday_off_weeks || [];
-    const updated = current.includes(weekNum)
-      ? current.filter(w => w !== weekNum)
-      : [...current, weekNum].sort();
-    setSettings({ ...settings, saturday_off_weeks: updated });
-  };
-
-  const isWeekOff = (weekNum: number, rule: SaturdayRule, offWeeks: number[]): boolean => {
-    if (rule === 'all_off') return true;
-    if (rule === 'all_on') return false;
-    if (rule === '2nd_4th_off') return [2, 4].includes(weekNum);
-    if (rule === '1st_3rd_off') return [1, 3].includes(weekNum);
-    if (rule === 'custom') return offWeeks.includes(weekNum);
-    return true;
-  };
-
-  const monthSaturdays = getThisMonthSaturdays();
 
   if (loading) {
     return (
@@ -215,9 +167,9 @@ export default function SystemSettingsPage() {
                       <div className="relative group">
                         <div className="h-24 w-44 rounded-xl border bg-white flex items-center justify-center overflow-hidden shadow-sm transition-transform group-hover:scale-[1.02]">
                           {settings?.company_logo ? (
-                            <img 
-                              src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`} 
-                              alt="Logo Preview" 
+                            <img
+                              src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`}
+                              alt="Logo Preview"
                               className="max-h-full max-w-full object-contain"
                             />
                           ) : (
@@ -239,12 +191,12 @@ export default function SystemSettingsPage() {
                           </Button>
                         )}
                       </div>
-                      
+
                       <div className="flex-1 space-y-3">
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold">Brand Identity</h4>
                           <p className="text-xs text-muted-foreground leading-relaxed">
-                            Upload your company logo to display on reports, invoices, and the dashboard sidebar. 
+                            Upload your company logo to display on reports, invoices, and the dashboard sidebar.
                             Recommended: PNG or SVG with transparent background.
                           </p>
                         </div>
@@ -302,6 +254,29 @@ export default function SystemSettingsPage() {
                     <div className="space-y-2">
                       <Label htmlFor="lunch_end_time">Lunch Break End</Label>
                       <Input id="lunch_end_time" type="time" value={settings?.lunch_end_time || ''} onChange={(e) => setSettings({ ...settings, lunch_end_time: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t">
+                    <h4 className="text-sm font-semibold mb-4 text-primary">Half Day Configuration</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="half_day_start_time">Half Day Clock-In (Start)</Label>
+                        <Input id="half_day_start_time" type="time" value={settings?.half_day_start_time || '09:00'} onChange={(e) => setSettings({ ...settings, half_day_start_time: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="half_day_end_time">Half Day Clock-Out (End)</Label>
+                        <Input id="half_day_end_time" type="time" value={settings?.half_day_end_time || '14:00'} onChange={(e) => setSettings({ ...settings, half_day_end_time: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="half_day_late_threshold">Half Day Late Threshold (minutes)</Label>
+                        <Input id="half_day_late_threshold" type="number" value={settings?.half_day_late_threshold || 15} onChange={(e) => setSettings({ ...settings, half_day_late_threshold: parseInt(e.target.value) })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="half_day_work_hours">Half Day Expected Work Hours</Label>
+                        <Input id="half_day_work_hours" type="number" step="0.1" value={settings?.half_day_work_hours || 4} onChange={(e) => setSettings({ ...settings, half_day_work_hours: parseFloat(e.target.value) })} />
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,12 +354,12 @@ export default function SystemSettingsPage() {
                       </Label>
                       <Badge variant="outline" className="text-[10px] uppercase">Customizable</Badge>
                     </div>
-                    <Textarea 
-                      id="invoice_template" 
+                    <Textarea
+                      id="invoice_template"
                       className="min-h-[400px] font-mono text-xs p-4 bg-slate-950 text-emerald-400 border-none rounded-lg"
                       placeholder="Enter your HTML template here..."
-                      value={settings?.invoice_template || ''} 
-                      onChange={(e) => setSettings({ ...settings, invoice_template: e.target.value })} 
+                      value={settings?.invoice_template || ''}
+                      onChange={(e) => setSettings({ ...settings, invoice_template: e.target.value })}
                     />
                   </div>
 

@@ -529,8 +529,11 @@ export const getMyAttendance = async (userId: string, limit = 30) => {
   return await fetcher(`attendance?user_id=${userId}&limit=${limit}`, {}, 'attendance') as Attendance[];
 };
 
-export const getAllAttendance = async (limit = 100) => {
-  return await fetcher(`attendance?limit=${limit}`, {}, 'attendance') as Attendance[];
+export const getAllAttendance = async (limit = 100, from?: string, to?: string) => {
+  let query = `attendance?limit=${limit}`;
+  if (from) query += `&from=${from}`;
+  if (to) query += `&to=${to}`;
+  return await fetcher(query, {}, 'attendance') as Attendance[];
 };
 
 export const clockIn = async (userId: string) => {
@@ -998,8 +1001,5 @@ export const generateAbsences = async (from: string, to: string): Promise<{ crea
 };
 
 export const deleteAbsence = async (id: string): Promise<void> => {
-  await fetch(`${API_URL}/absences/${id}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-  });
+  await fetcher(`absences/${id}`, { method: 'DELETE' });
 };

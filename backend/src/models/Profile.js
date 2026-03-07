@@ -20,6 +20,11 @@ const ProfileSchema = new mongoose.Schema({
     is_active: { type: Boolean, default: true },
     skip_ip_restriction: { type: Boolean, default: false },
     client_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null }, // If client, stores company id
+    shift_type: {
+        type: String,
+        enum: ['full_day', 'half_day'],
+        default: 'full_day'
+    },
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
     toJSON: { virtuals: true },

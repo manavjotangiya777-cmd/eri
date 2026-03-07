@@ -71,7 +71,7 @@ export default function LoginPage() {
           <img
             src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`}
             alt="Logo"
-            className="h-10 lg:h-12 w-auto object-contain brightness-100 lg:brightness-0 lg:invert transition-all"
+            className="h-10 lg:h-12 w-auto object-contain brightness-100 lg:brightness-0 transition-all"
           />
         ) : (
           <div className="flex items-center gap-2">

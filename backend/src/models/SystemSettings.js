@@ -11,6 +11,11 @@ const SystemSettingsSchema = new mongoose.Schema({
     lunch_end_time: { type: String, default: '14:00' },
     work_hours_per_day: { type: Number, default: 8 },
     late_threshold_minutes: { type: Number, default: 15 },
+    // Half Day Timings
+    half_day_start_time: { type: String, default: '09:00' },
+    half_day_end_time: { type: String, default: '14:00' },
+    half_day_late_threshold: { type: Number, default: 15 },
+    half_day_work_hours: { type: Number, default: 4 },
     // Saturday working day rule
     saturday_rule: {
         type: String,

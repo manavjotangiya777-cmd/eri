@@ -38,6 +38,7 @@ export interface Profile {
   is_active: boolean;
   skip_ip_restriction: boolean;
   client_id: string | null;
+  shift_type: 'full_day' | 'half_day';
   created_at: string;
   updated_at: string;
 }
@@ -239,6 +240,10 @@ export interface SystemSettings {
   lunch_end_time: string;
   work_hours_per_day: number;
   late_threshold_minutes: number;
+  half_day_start_time: string;
+  half_day_end_time: string;
+  half_day_late_threshold: number;
+  half_day_work_hours: number;
   invoice_template: string | null;
   updated_at: string;
 }
