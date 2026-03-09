@@ -33,6 +33,23 @@ const Warning = require('../models/Warning');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Request Logging Middleware
+const IST_TIMEZONE = 'Asia/Kolkata';
+const getISTDateString = (date = new Date()) => {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: IST_TIMEZONE }).format(date);
+};
+const getISTTimeParts = (date = new Date()) => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false, timeZone: IST_TIMEZONE
+    });
+    const parts = formatter.formatToParts(date);
+    return {
+        h: parseInt(parts.find(p => p.type === 'hour').value),
+        m: parseInt(parts.find(p => p.type === 'minute').value),
+        s: parseInt(parts.find(p => p.type === 'second').value)
+    };
+};
+
 router.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} from IP: ${req.ip}`);
     if (Object.keys(req.query).length) console.log('Query:', req.query);
@@ -240,7 +257,7 @@ router.get('/attendance/today', async (req, res) => {
         if (!user_id) return res.status(400).json({ error: 'user_id is required' });
 
         const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const today = getISTDateString(now);
 
         const record = await Attendance.findOne({ user_id, date: today });
         if (record) {
@@ -261,7 +278,6 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
         const user = await Profile.findById(userId);
         const shiftType = user?.shift_type || 'full_day';
 
-        // Use schema defaults if settings doc doesn't exist
         const startTime = shiftType === 'half_day'
             ? (settings?.half_day_start_time || '09:00')
             : (settings?.work_start_time || '09:00');
@@ -271,15 +287,17 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
 
         if (!startTime) return { is_late: false, late_minutes: 0 };
 
-        const [h, m] = startTime.split(':').map(Number);
-        const workStart = new Date(now);
-        workStart.setHours(h, m, 0, 0);
-        const lateLimit = new Date(workStart.getTime() + threshold * 60000);
+        const { h: nowH, m: nowM } = getISTTimeParts(now);
+        const [targetH, targetM] = startTime.split(':').map(Number);
 
-        if (now > lateLimit) {
+        const nowTotalMinutes = nowH * 60 + nowM;
+        const targetTotalMinutes = targetH * 60 + targetM;
+        const limitTotalMinutes = targetTotalMinutes + threshold;
+
+        if (nowTotalMinutes > limitTotalMinutes) {
             return {
                 is_late: true,
-                late_minutes: Math.floor((now.getTime() - workStart.getTime()) / 60000)
+                late_minutes: nowTotalMinutes - targetTotalMinutes
             };
         }
         return { is_late: false, late_minutes: 0 };
@@ -288,7 +306,7 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
     try {
         const { user_id } = req.body;
         const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const today = getISTDateString(now);
 
         let record = await Attendance.findOne({ user_id, date: today });
 
@@ -324,7 +342,7 @@ router.post('/attendance/clock-out', ensureOfficeNetwork, async (req, res) => {
     try {
         const { user_id } = req.body;
         const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const today = getISTDateString(now);
 
         let record = await Attendance.findOne({ user_id, date: today });
         if (!record || !record.currentSessionOpen) return res.status(400).json({ error: 'No active session' });
@@ -380,7 +398,7 @@ router.post('/attendance/break-in', ensureOfficeNetwork, async (req, res) => {
     try {
         const { user_id } = req.body;
         const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const today = getISTDateString(now);
 
         let record = await Attendance.findOne({ user_id, date: today });
         if (!record || record.status !== 'working') return res.status(400).json({ error: 'You must be working to start a break' });
@@ -400,7 +418,7 @@ router.post('/attendance/break-out', ensureOfficeNetwork, async (req, res) => {
     try {
         const { user_id } = req.body;
         const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const today = getISTDateString(now);
 
         let record = await Attendance.findOne({ user_id, date: today });
         if (!record || record.status !== 'on_break') return res.status(400).json({ error: 'No active break' });
@@ -542,7 +560,7 @@ router.post('/absences/generate', async (req, res) => {
         }
 
         // Only process past/today dates
-        const today = new Date().toISOString().split('T')[0];
+        const today = getISTDateString();
         const validDates = dates.filter(d => d <= today);
 
         let created = 0;
@@ -575,12 +593,10 @@ router.post('/absences/generate', async (req, res) => {
                     if (date === today) {
                         const shiftEnd = employee.shift_type === 'half_day' ? settings.half_day_end_time : settings.work_end_time;
                         if (shiftEnd) {
-                            const [h, m] = shiftEnd.split(':').map(Number);
-                            const now = new Date();
-                            const endTime = new Date();
-                            endTime.setHours(h, m, 0, 0);
+                            const [targetH, targetM] = shiftEnd.split(':').map(Number);
+                            const { h: nowH, m: nowM } = getISTTimeParts();
 
-                            if (now < endTime) {
+                            if ((nowH * 60 + nowM) < (targetH * 60 + targetM)) {
                                 continue; // Shift hasn't ended yet, don't mark as absent
                             }
                         }

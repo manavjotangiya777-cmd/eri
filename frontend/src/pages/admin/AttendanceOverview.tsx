@@ -207,17 +207,21 @@ export default function AttendanceOverview() {
     new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
   // Merge attendance + absences + missing current day users
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const IST_TZ = 'Asia/Kolkata';
+  const getISTDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: IST_TZ }).format(new Date());
+  const getISTTimeInMinutes = () => {
+    const parts = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: false, timeZone: IST_TZ }).formatToParts(new Date());
+    return parseInt(parts.find(p => p.type === 'hour')!.value) * 60 + parseInt(parts.find(p => p.type === 'minute')!.value);
+  };
+
+  const todayStr = getISTDate();
 
   const isShiftEnded = (user: Profile | undefined) => {
     if (!user || !settings) return true;
     const shiftEnd = user.shift_type === 'half_day' ? settings.half_day_end_time : settings.work_end_time;
     if (!shiftEnd) return true;
     const [h, m] = shiftEnd.split(':').map(Number);
-    const endTime = new Date(now);
-    endTime.setHours(h, m, 0, 0);
-    return now > endTime;
+    return getISTTimeInMinutes() > (h * 60 + m);
   };
 
   const mergedRows: MergedRow[] = [

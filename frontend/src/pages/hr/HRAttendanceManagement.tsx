@@ -14,8 +14,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { getAllAttendance, getAllProfiles, updateAttendance, createAttendance, deleteAttendance, getAbsences } from '@/db/api';
-import type { Profile } from '@/types';
+import { getAllAttendance, getAllProfiles, updateAttendance, createAttendance, deleteAttendance, getAbsences, getSystemSettings } from '@/db/api';
+import type { Profile, SystemSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Trash2, Plus, UserX } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,7 @@ export default function HRAttendanceManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({ user_id: '', date: '', clock_in: '', clock_out: '' });
@@ -42,10 +43,11 @@ export default function HRAttendanceManagement() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [attendanceData, usersData, absenceData] = await Promise.all([
+      const [attendanceData, usersData, absenceData, settingsData] = await Promise.all([
         getAllAttendance(500),
         getAllProfiles(),
         getAbsences(),
+        getSystemSettings(),
       ]);
 
       // Include employees, HR users, and BDEs in the attendance view
@@ -59,6 +61,7 @@ export default function HRAttendanceManagement() {
       setAttendance(staffAttendance);
       setAbsences(absenceData);
       setUsers(staffUsers);
+      setSettings(settingsData as any);
     } catch {
       toast({ title: 'Error', description: 'Failed to load attendance data', variant: 'destructive' });
     } finally {
@@ -77,11 +80,33 @@ export default function HRAttendanceManagement() {
   );
 
   // Build merged rows: attendance rows + absent rows (de-duplicated)
+  const IST_TZ = 'Asia/Kolkata';
+  const getISTDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: IST_TZ }).format(new Date());
+  const getISTTimeInMinutes = () => {
+    const parts = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: false, timeZone: IST_TZ }).formatToParts(new Date());
+    return parseInt(parts.find(p => p.type === 'hour')!.value) * 60 + parseInt(parts.find(p => p.type === 'minute')!.value);
+  };
+
+  const todayStr = getISTDate();
+
+  const isShiftEnded = (user: Profile | undefined) => {
+    if (!user || !settings) return true;
+    const shiftEnd = user.shift_type === 'half_day' ? settings.half_day_end_time : settings.work_end_time;
+    if (!shiftEnd) return true;
+    const [h, m] = shiftEnd.split(':').map(Number);
+    return getISTTimeInMinutes() > (h * 60 + m);
+  };
+
   const mergedRows: MergedRow[] = [
     ...attendance.map(r => ({ kind: 'attendance' as const, record: r })),
     ...absences
       .filter(ab => {
         const uid = ab.user_id?._id?.toString() || ab.user_id?.toString?.() || '';
+        const isToday = ab.date === todayStr;
+        if (isToday && ab.reason === 'no_clockin') {
+          const user = users.find(u => (u.id || (u as any)._id?.toString()) === uid);
+          if (!isShiftEnded(user)) return false;
+        }
         return !attendanceKeys.has(`${uid}_${ab.date}`);
       })
       .map(ab => ({
@@ -91,6 +116,25 @@ export default function HRAttendanceManagement() {
         date: ab.date,
         absenceReason: ab.reason === 'approved_leave' ? 'Approved Leave' : 'No Clock-In',
       })),
+    // Dynamic "Not Clocked In Yet" for today
+    ...users
+      .filter(u => u.role === 'employee' || u.role === 'bde' || u.role === 'hr')
+      .filter(u => {
+        const uid = u.id || (u as any)._id?.toString();
+        return !attendanceKeys.has(`${uid}_${todayStr}`);
+      })
+      .filter(u => {
+        const uid = u.id || (u as any)._id?.toString();
+        return !absences.some(ab => ab.date === todayStr && (ab.user_id?._id?.toString() || ab.user_id?.toString?.()) === uid);
+      })
+      .filter(u => isShiftEnded(u)) // Only show as "Absent" if the shift time has already passed
+      .map(u => ({
+        kind: 'absent' as const,
+        userId: u.id || (u as any)._id?.toString(),
+        userName: u.full_name || u.username,
+        date: todayStr,
+        absenceReason: 'Not Clocked In Yet',
+      }))
   ].sort((a, b) => {
     const da = a.kind === 'attendance' ? a.record.date : a.date;
     const db = b.kind === 'attendance' ? b.record.date : b.date;
