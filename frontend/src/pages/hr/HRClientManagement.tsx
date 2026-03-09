@@ -73,6 +73,7 @@ export default function ClientManagement() {
     username: '',
     password: '',
     full_name: '',
+    email: '',
   });
   const [creatingUser, setCreatingUser] = useState(false);
 
@@ -156,10 +157,10 @@ export default function ClientManagement() {
     e.preventDefault();
     if (!selectedClient) return;
 
-    if (!newUser.username || !newUser.password) {
+    if (!newUser.username || !newUser.password || !newUser.email || !newUser.full_name) {
       toast({
         title: 'Error',
-        description: 'Username and password are required',
+        description: 'All fields are required',
         variant: 'destructive',
       });
       return;
@@ -170,6 +171,8 @@ export default function ClientManagement() {
       const createResult = await adminCreateUser({
         username: newUser.username,
         password: newUser.password,
+        email: newUser.email,
+        full_name: newUser.full_name,
         role: 'client',
         client_id: selectedClient.id,
       });
@@ -184,6 +187,7 @@ export default function ClientManagement() {
         // Update the profile with client role and client_id
         await updateProfile(data.id, {
           full_name: newUser.full_name || null,
+          email: newUser.email || null,
           role: 'client',
           client_id: selectedClient.id,
         });
@@ -193,7 +197,7 @@ export default function ClientManagement() {
           description: 'Client user created successfully',
         });
 
-        setNewUser({ username: '', password: '', full_name: '' });
+        setNewUser({ username: '', password: '', full_name: '', email: '' });
         setCreateUserDialogOpen(false);
         await loadClientDetails(selectedClient.id);
       }
@@ -641,6 +645,16 @@ export default function ClientManagement() {
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="new_fullname">Client Full Name *</Label>
+                <Input
+                  id="new_fullname"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="new_username">Username *</Label>
                 <Input
                   id="new_username"
@@ -651,12 +665,14 @@ export default function ClientManagement() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new_fullname">Full Name</Label>
+                <Label htmlFor="new_email">Email ID *</Label>
                 <Input
-                  id="new_fullname"
-                  value={newUser.full_name}
-                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                  placeholder="John Doe"
+                  id="new_email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  placeholder="john@example.com"
+                  required
                 />
               </div>
               <div className="space-y-2">

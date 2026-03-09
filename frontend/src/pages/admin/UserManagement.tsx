@@ -794,6 +794,7 @@ export default function UserManagement() {
                                                 <SelectItem value="hr">HR</SelectItem>
                                                 <SelectItem value="employee">Employee</SelectItem>
                                                 <SelectItem value="bde">BDE</SelectItem>
+                                                <SelectItem value="client">Client</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -812,6 +813,29 @@ export default function UserManagement() {
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                    {editUser.role === 'client' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit_client_id" className="text-sm font-semibold">Associated Client Company *</Label>
+                                            <Select
+                                                value={editUser.client_id || 'none'}
+                                                onValueChange={(value) =>
+                                                    setEditUser({ ...editUser, client_id: value === 'none' ? null : value })
+                                                }
+                                            >
+                                                <SelectTrigger className="h-11 shadow-sm border-primary/20">
+                                                    <SelectValue placeholder="Select associated client" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">No Client Association</SelectItem>
+                                                    {clients.map((client) => (
+                                                        <SelectItem key={client.id} value={client.id}>
+                                                            {client.company_name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                     {(editUser.role === 'employee' || editUser.role === 'bde') && (
                                         <div className="flex items-center justify-between p-4 border rounded-xl bg-slate-50 shadow-sm">
                                             <div className="space-y-0.5">
