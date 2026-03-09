@@ -51,7 +51,7 @@ import {
 import type { Client, Profile, Task, ClientNote, PaymentMilestone, Invoice } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Pencil, Trash2, Users, FileText, CheckSquare, Building2, UserPlus, IndianRupee, Receipt } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, FileText, CheckSquare, Building2, UserPlus, IndianRupee, Receipt, Filter, Search } from 'lucide-react';
 import React from 'react';
 interface ClientManagementProps {
   Layout?: React.ComponentType<{ children: React.ReactNode }>;
@@ -89,6 +89,12 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const { toast } = useToast();
 
+  // Filtering & Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('all');
+  const [industryFilter, setIndustryFilter] = useState('all');
+
   // New User State
   const [newUser, setNewUser] = useState({
     username: '',
@@ -108,6 +114,8 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
     email: '',
     phone: '',
     address: '',
+    sector: 'B2B',
+    industry: 'Private',
     status: 'active',
     assigned_to: null,
   };
@@ -232,23 +240,24 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
 
     setCreatingUser(true);
     try {
-      const { data, error } = await adminCreateUser({
+      const result = await adminCreateUser({
         username: newUser.username,
         password: newUser.password,
         email: newUser.email,
         full_name: newUser.full_name,
         role: 'client',
+        client_id: selectedClient.id,
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (!result.success) throw new Error(result.error || 'Failed to create user');
+      const data = result.user;
 
-      if (data?.user?.id) {
+      if (data?.id) {
         // Wait a moment for the trigger to complete
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Update the profile with client role and client_id
-        await updateProfile(data.user.id, {
+        // Update the profile with client role and client_id (ensure they are set)
+        await updateProfile(data.id, {
           full_name: newUser.full_name || null,
           email: newUser.email || null,
           role: 'client',
@@ -350,6 +359,18 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
     }
   };
 
+  const filteredClients = (clients || []).filter(client => {
+    const matchesSearch = client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
+    const matchesSector = sectorFilter === 'all' || client.sector === sectorFilter;
+    const matchesIndustry = industryFilter === 'all' || client.industry === industryFilter;
+
+    return matchesSearch && matchesStatus && matchesSector && matchesIndustry;
+  });
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -364,6 +385,97 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
           </Button>
         </div>
 
+        {/* Filters Section */}
+        <Card className="border-primary/10 shadow-sm bg-muted/5">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Search Clients</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Company, name, email..."
+                    className="pl-9 bg-white"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="bg-white">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                      <SelectValue placeholder="All Status" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active Only</SelectItem>
+                    <SelectItem value="inactive">Inactive Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Sector</Label>
+                <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                  <SelectTrigger className="bg-white">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <SelectValue placeholder="All Sectors" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sectors</SelectItem>
+                    <SelectItem value="B2B">B2B</SelectItem>
+                    <SelectItem value="B2C">B2C</SelectItem>
+                    <SelectItem value="D2C">D2C</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Industry</Label>
+                <Select value={industryFilter} onValueChange={setIndustryFilter}>
+                  <SelectTrigger className="bg-white">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      <SelectValue placeholder="All Industries" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Industries</SelectItem>
+                    <SelectItem value="Government">Government</SelectItem>
+                    <SelectItem value="Institutional">Institutional</SelectItem>
+                    <SelectItem value="Private">Private</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-end pb-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-9"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                    setSectorFilter('all');
+                    setIndustryFilter('all');
+                  }}
+                >
+                  Reset Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>All Clients</CardTitle>
@@ -376,20 +488,35 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
                 <TableHeader>
                   <TableRow>
                     <TableHead>Company</TableHead>
+                    <TableHead>Sector/Industry</TableHead>
                     <TableHead>Contact Person</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clients.map((client) => (
+                  {filteredClients.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">
+                        No clients found matching your filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredClients.map((client) => (
                     <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.company_name}</TableCell>
-                      <TableCell>{client.contact_person}</TableCell>
-                      <TableCell>{client.email || '-'}</TableCell>
-                      <TableCell>{client.phone || '-'}</TableCell>
+                      <TableCell className="font-medium">
+                        <div>{client.company_name}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{client.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="w-fit text-[9px] h-4 uppercase">{client.sector || 'B2B'}</Badge>
+                          <Badge variant="outline" className="w-fit text-[9px] h-4 uppercase">{client.industry || 'Private'}</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-xs">{client.contact_person}</div>
+                        <div className="text-[10px] text-muted-foreground">{client.phone}</div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
                           {client.status}
@@ -875,6 +1002,46 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
                     setFormData({ ...formData, address: e.target.value })
                   }
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sector">Sector</Label>
+                  <Select
+                    value={formData.sector || 'B2B'}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, sector: value as any })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="B2B">B2B</SelectItem>
+                      <SelectItem value="B2C">B2C</SelectItem>
+                      <SelectItem value="D2C">D2C</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="industry">Industry</Label>
+                  <Select
+                    value={formData.industry || 'Private'}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, industry: value as any })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Government">Government</SelectItem>
+                      <SelectItem value="Institutional">Institutional</SelectItem>
+                      <SelectItem value="Private">Private</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

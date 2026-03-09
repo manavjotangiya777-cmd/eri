@@ -6,6 +6,8 @@ const ClientSchema = new mongoose.Schema({
     email: { type: String, default: null },
     phone: { type: String, default: null },
     address: { type: String, default: null },
+    sector: { type: String, enum: ['B2B', 'B2C', 'D2C', 'Other'], default: 'B2B' },
+    industry: { type: String, enum: ['Government', 'Institutional', 'Private', 'Other'], default: 'Private' },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     assigned_to: { type: mongoose.Schema.Types.Mixed, default: null }, // can be string or ObjectId
     created_by: { type: mongoose.Schema.Types.Mixed, default: null },

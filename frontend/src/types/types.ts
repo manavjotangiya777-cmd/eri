@@ -111,6 +111,9 @@ export interface Profile {
   updated_at: string;
 }
 
+export type ClientSector = 'B2B' | 'B2C' | 'D2C' | 'Other';
+export type ClientIndustry = 'Government' | 'Institutional' | 'Private' | 'Other';
+
 export interface Client {
   id: string;
   company_name: string;
@@ -118,6 +121,8 @@ export interface Client {
   email: string | null;
   phone: string | null;
   address: string | null;
+  sector: ClientSector;
+  industry: ClientIndustry;
   status: ClientStatus;
   assigned_to: string | null;
   created_by: string | null;
