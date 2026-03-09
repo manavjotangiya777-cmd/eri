@@ -31,6 +31,7 @@ import {
   Sparkles,
   UserX,
   Bell,
+  AlertTriangle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -53,6 +54,7 @@ const hrNavItems = [
   { icon: FileText, label: 'Content', path: '/hr/content' },
   { icon: MessageSquare, label: 'Chat', path: '/hr/chat' },
   { icon: UserX, label: 'Absence Records', path: '/hr/absences' },
+  { icon: AlertTriangle, label: 'Warnings', path: '/hr/warnings' },
   { icon: Sparkles, label: 'AI Assistant', path: '/hr/ai-assistant' },
 ];
 

@@ -1044,12 +1044,20 @@ export const deleteFollowUp = async (id: string): Promise<void> => {
 };
 
 // ─── Warnings ────────────────────────────────────────────────
-export const getAllWarnings = async (): Promise<Warning[]> => {
-  return await fetcher('warnings', {}, 'warnings') as Warning[];
+// ─── Warnings ────────────────────────────────────────────────
+export const getMyWarnings = async (userId: string, role: string): Promise<Warning[]> => {
+  return await getWarnings(false, userId, role) as Warning[];
 };
 
-export const getMyWarnings = async (role: string): Promise<Warning[]> => {
-  return await fetcher(`warnings/my?role=${role}`, {}, 'warnings') as Warning[];
+export const getWarnings = async (all = false, userId?: string, role?: string): Promise<Warning[]> => {
+  let url = 'warnings';
+  const params = new URLSearchParams();
+  if (all) params.append('all', 'true');
+  if (userId) params.append('user_id', userId);
+  if (role) params.append('role', role);
+
+  if (params.toString()) url += `?${params.toString()}`;
+  return await fetcher(url, {}, 'warnings') as Warning[];
 };
 
 export const createWarning = async (payload: Partial<Warning>): Promise<Warning> => {
@@ -1060,12 +1068,12 @@ export const createWarning = async (payload: Partial<Warning>): Promise<Warning>
 };
 
 export const updateWarning = async (id: string, payload: Partial<Warning>): Promise<Warning> => {
-  return await fetcher(`warnings?id=${id}`, {
+  return await fetcher(`warnings/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   }, 'warnings');
 };
 
 export const deleteWarning = async (id: string): Promise<void> => {
-  await fetcher(`warnings?id=${id}`, { method: 'DELETE' }, 'warnings');
+  await fetcher(`warnings/${id}`, { method: 'DELETE' }, 'warnings');
 };

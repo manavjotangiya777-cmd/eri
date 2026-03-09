@@ -20,7 +20,7 @@ import { markFollowUpsSeen } from '@/hooks/use-followup-badge';
 import { Calendar, Bell, FileText, Download, Cake, Sparkles, Phone, MessageCircle, Mail, Video, ChevronRight, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function EmployeeInfo() {
+export default function EmployeeInfo({ Layout = EmployeeLayout }: { Layout?: any }) {
   const { profile } = useAuth();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -46,7 +46,7 @@ export default function EmployeeInfo() {
         getMyDocuments(profile),
         getMyNotifications(profile.id, profile.role),
         getAllFollowUps(),
-        getMyWarnings(profile.role),
+        getMyWarnings(profile.id, profile.role),
       ]);
       // filter only follow-ups assigned to this user
       const myFollowUps = allFollowUps.filter(
@@ -153,18 +153,18 @@ export default function EmployeeInfo() {
 
   if (loading) {
     return (
-      <EmployeeLayout>
+      <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
-      </EmployeeLayout>
+      </Layout>
     );
   }
 
   const upcomingBirthdays = getUpcomingBirthdays();
 
   return (
-    <EmployeeLayout>
+    <Layout>
       <div className="space-y-8">
         <div className="flex items-center gap-4 mb-2">
           <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20">
@@ -476,8 +476,8 @@ export default function EmployeeInfo() {
                                 type="button"
                                 onClick={() => setStatusMap(prev => ({ ...prev, [fu.id]: s }))}
                                 className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all ${currentStatus === s
-                                    ? `${statusColors[s]} border-current shadow-sm scale-[1.02]`
-                                    : 'border-muted bg-white text-muted-foreground hover:bg-muted/60'
+                                  ? `${statusColors[s]} border-current shadow-sm scale-[1.02]`
+                                  : 'border-muted bg-white text-muted-foreground hover:bg-muted/60'
                                   }`}
                               >
                                 {statusLabels[s]}
@@ -648,6 +648,6 @@ export default function EmployeeInfo() {
           </TabsContent>
         </Tabs >
       </div >
-    </EmployeeLayout >
+    </Layout >
   );
 }

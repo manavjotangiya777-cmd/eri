@@ -705,6 +705,7 @@ router.post('/tasks', async (req, res) => {
                 title: `📝 New Task Assigned`,
                 message: `You have been assigned a new task: ${task.title}`,
                 target_user: task.assigned_to,
+                target_role: 'none',
                 type: 'task'
             });
         }
@@ -742,6 +743,7 @@ const handleLeaveUpdate = async (req, res) => {
                 title: `📅 Leave Request ${statusLabel}`,
                 message: `Your leave request for ${new Date(leave.start_date).toLocaleDateString()} has been ${leave.status}.`,
                 target_user: toObjectId(leave.user_id),
+                target_role: 'none',
                 type: 'leave'
             });
         }
@@ -749,10 +751,37 @@ const handleLeaveUpdate = async (req, res) => {
     } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
+const handleTaskUpdate = async (req, res) => {
+    try {
+        const id = req.params.id || req.query.id;
+        if (!id) return res.status(400).json({ error: 'Task ID required' });
+
+        const oldTask = await Task.findById(id);
+        const task = await Task.findByIdAndUpdate(id, req.body, { new: true });
+
+        // If assigned_to changed, notify the new user
+        if (task && task.assigned_to && (!oldTask || oldTask.assigned_to?.toString() !== task.assigned_to.toString())) {
+            await Notification.create({
+                title: `📝 Task Re-assigned`,
+                message: `You have been assigned a task: ${task.title}`,
+                target_user: task.assigned_to,
+                target_role: 'none',
+                type: 'task'
+            });
+        }
+        res.json(task);
+    } catch (err) { res.status(400).json({ error: err.message }); }
+};
+
 router.put('/leaves', handleLeaveUpdate);
 router.patch('/leaves', handleLeaveUpdate);
 router.put('/leaves/:id', handleLeaveUpdate);
 router.patch('/leaves/:id', handleLeaveUpdate);
+
+router.put('/tasks', handleTaskUpdate);
+router.patch('/tasks', handleTaskUpdate);
+router.put('/tasks/:id', handleTaskUpdate);
+router.patch('/tasks/:id', handleTaskUpdate);
 
 // --- Standard CRUD Routes --- 
 defineStandardRoutes('/profiles', Profile, 'designation client');
@@ -1776,7 +1805,7 @@ router.post('/notifications', async (req, res) => {
         const notification = new Notification({
             title,
             message,
-            target_role: target_role || 'all',
+            target_role: target_role || (target_user ? 'none' : 'all'),
             target_user: toObjectId(target_user),
             type: type || 'system',
             created_by: toObjectId(created_by)
@@ -1934,6 +1963,79 @@ router.post('/task_time_logs/pause', async (req, res) => {
         res.json(o);
     } catch (err) {
         console.error('Pause timer error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Warning Routes ---
+
+router.get('/warnings', async (req, res) => {
+    try {
+        const { user_id, role, all } = req.query;
+
+        let query = {};
+        if (all === 'true') {
+            // Admin view - see everything
+            query = {};
+        } else if (user_id && role) {
+            // Employee view - see global, role-based, or specifically targeted warnings
+            query = {
+                $or: [
+                    { target_role: 'all' },
+                    { target_role: role },
+                    { user_id: toObjectId(user_id) }
+                ],
+                is_active: true
+            };
+        }
+
+        const warnings = await Warning.find(query)
+            .sort({ created_at: -1 })
+            .populate('user_id', 'full_name username') // targeted user
+            .populate('created_by', 'full_name username'); // who sent it
+
+        res.json(warnings.map(w => {
+            const o = w.toObject({ virtuals: true });
+            o.id = o._id.toString();
+            return o;
+        }));
+    } catch (err) {
+        console.error('Fetch warnings error:', err);
+        res.status(500).json({ error: 'Failed to fetch warnings' });
+    }
+});
+
+router.post('/warnings', async (req, res) => {
+    try {
+        const { title, message, severity, target_role, user_id, created_by, expires_at } = req.body;
+
+        if (!title || !message) {
+            return res.status(400).json({ error: 'Title and message are required' });
+        }
+
+        const warning = new Warning({
+            title,
+            message,
+            severity: severity || 'medium',
+            target_role: target_role || 'all',
+            user_id: user_id ? toObjectId(user_id) : null,
+            created_by: toObjectId(created_by),
+            expires_at: expires_at || null
+        });
+
+        await warning.save();
+        res.status(201).json(warning);
+    } catch (err) {
+        console.error('Create warning error:', err);
+        res.status(500).json({ error: 'Failed to create warning' });
+    }
+});
+
+router.delete('/warnings/:id', async (req, res) => {
+    try {
+        await Warning.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

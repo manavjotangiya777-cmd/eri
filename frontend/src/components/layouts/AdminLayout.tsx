@@ -34,6 +34,7 @@ import {
   UserX,
   Calendar,
   Bell,
+  AlertTriangle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -59,6 +60,7 @@ const adminNavItems = [
   { icon: MessageSquare, label: 'Chat', path: '/admin/chat' },
   { icon: Users, label: 'Client Support', path: '/admin/client-support' },
   { icon: UserX, label: 'Absence Records', path: '/admin/absences' },
+  { icon: AlertTriangle, label: 'Warnings', path: '/admin/warnings' },
   { icon: Sparkles, label: 'AI Assistant', path: '/admin/ai-assistant' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];

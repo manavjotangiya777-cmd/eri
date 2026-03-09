@@ -8,8 +8,9 @@ export interface Warning {
   title: string;
   message: string;
   severity: WarningSeverity;
-  target_role: 'all' | 'employee' | 'bde' | 'hr';
-  created_by: string | null;
+  target_role: 'all' | 'employee' | 'bde' | 'hr' | 'individual';
+  user_id: string | null;
+  created_by: any | null; // Profile object if populated
   expires_at: string | null;
   is_active: boolean;
   created_at: string;

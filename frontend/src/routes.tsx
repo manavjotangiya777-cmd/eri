@@ -18,6 +18,7 @@ import ChatPage from './pages/admin/ChatPage';
 import ClientSupportChatPage from './pages/admin/ClientSupportChatPage';
 import AbsenceRecordPage from './pages/admin/AbsenceRecordPage';
 import AdminLeaveRequests from './pages/admin/AdminLeaveRequests';
+import WarningManagement from './pages/admin/WarningManagement';
 import AdminLayout from './components/layouts/AdminLayout';
 import HRLayout from './components/layouts/HRLayout';
 import BDELayout from './components/layouts/BDELayout';
@@ -141,6 +142,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['admin']}><AbsenceRecordPage Layout={AdminLayout} /></ProtectedRoute>,
   },
   {
+    name: 'Warning Management',
+    path: '/admin/warnings',
+    element: <ProtectedRoute allowedRoles={['admin']}><WarningManagement Layout={AdminLayout} /></ProtectedRoute>,
+  },
+  {
     path: '/admin/profile',
     element: <ProtectedRoute allowedRoles={['admin']}><ProfilePage /></ProtectedRoute>,
   },
@@ -199,6 +205,11 @@ const routes: RouteConfig[] = [
     name: 'Absence Records',
     path: '/hr/absences',
     element: <ProtectedRoute allowedRoles={['hr']}><AbsenceRecordPage Layout={HRLayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'Warning Management',
+    path: '/hr/warnings',
+    element: <ProtectedRoute allowedRoles={['hr']}><WarningManagement Layout={HRLayout} /></ProtectedRoute>,
   },
   {
     path: '/hr/profile',
@@ -320,6 +331,11 @@ const routes: RouteConfig[] = [
     name: 'AI Assistant',
     path: '/bde/ai-assistant',
     element: <ProtectedRoute allowedRoles={['bde']}><AiAssistantPage /></ProtectedRoute>,
+  },
+  {
+    name: 'Information',
+    path: '/bde/info',
+    element: <ProtectedRoute allowedRoles={['bde']}><EmployeeInfo Layout={BDELayout} /></ProtectedRoute>,
   },
   {
     path: '/bde/profile',

@@ -46,7 +46,7 @@ import {
   getAllNotifications,
   deleteNotification,
   getAllFollowUps,
-  getAllWarnings,
+  getWarnings,
   createWarning,
   deleteWarning,
 } from '@/db/api';
@@ -111,7 +111,8 @@ export default function HRContentManagement() {
     title: '',
     message: '',
     severity: 'medium' as 'low' | 'medium' | 'high' | 'critical',
-    target_role: 'all' as 'all' | 'employee' | 'bde' | 'hr',
+    target_role: 'all' as 'all' | 'employee' | 'bde' | 'hr' | 'individual',
+    user_id: '',
     expires_at: '',
   });
 
@@ -126,7 +127,7 @@ export default function HRContentManagement() {
         getAllDocuments(),
         getAllNotifications(),
         getAllFollowUps(),
-        getAllWarnings(),
+        getWarnings(true),
       ]);
       setHolidays(holidaysData);
       setAnnouncements(announcementsData);
@@ -404,12 +405,13 @@ export default function HRContentManagement() {
         message: warningForm.message,
         severity: warningForm.severity,
         target_role: warningForm.target_role,
+        user_id: warningForm.target_role === 'individual' ? warningForm.user_id : null,
         expires_at: warningForm.expires_at ? new Date(warningForm.expires_at).toISOString() : null,
         created_by: profile?.id || null,
         is_active: true,
       });
       toast({ title: 'Warning Posted', description: 'Warning published successfully' });
-      setWarningForm({ title: '', message: '', severity: 'medium', target_role: 'all', expires_at: '' });
+      setWarningForm({ title: '', message: '', severity: 'medium', target_role: 'all', user_id: '', expires_at: '' });
       setWarningDialogOpen(false);
       loadData();
     } catch (error) {
@@ -974,7 +976,9 @@ export default function HRContentManagement() {
                             {w.severity}
                           </span>
                           <span className="text-[10px] uppercase font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                            → {w.target_role === 'all' ? 'Everyone' : w.target_role}
+                            → {w.target_role === 'all' ? 'Everyone' :
+                              w.target_role === 'individual' ? ((w.user_id as any)?.full_name || 'Particular User') :
+                                w.target_role}
                           </span>
                           {!w.is_active && <span className="text-[10px] font-bold text-muted-foreground">[Inactive]</span>}
                         </div>
@@ -1280,6 +1284,7 @@ export default function HRContentManagement() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Everyone</SelectItem>
+                      <SelectItem value="individual">Particular User</SelectItem>
                       <SelectItem value="employee">Employees Only</SelectItem>
                       <SelectItem value="bde">BDE Only</SelectItem>
                       <SelectItem value="hr">HR Only</SelectItem>
@@ -1287,6 +1292,20 @@ export default function HRContentManagement() {
                   </Select>
                 </div>
               </div>
+
+              {warningForm.target_role === 'individual' && (
+                <div className="space-y-2">
+                  <Label>Select Employee *</Label>
+                  <Select value={warningForm.user_id} onValueChange={v => setWarningForm({ ...warningForm, user_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Search member..." /></SelectTrigger>
+                    <SelectContent>
+                      {employees.filter(e => e.is_active).map(u => (
+                        <SelectItem key={u.id} value={u.id}>{u.full_name || u.username} ({u.role})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Expiry Date (optional)</Label>
                 <Input

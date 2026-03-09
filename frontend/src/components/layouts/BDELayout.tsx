@@ -30,6 +30,7 @@ import {
   LogOut,
   User,
   Bell,
+  Info,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -48,6 +49,7 @@ const bdeNavItems = [
   { icon: CheckSquare, label: 'My Tasks', path: '/bde/tasks' },
   { icon: Bell, label: 'Follow-Ups', path: '/bde/followups' },
   { icon: FileText, label: 'Attendance Report', path: '/bde/attendance-report' },
+  { icon: Info, label: 'Information', path: '/bde/info' },
   { icon: MessageSquare, label: 'Chat', path: '/bde/chat' },
   { icon: Sparkles, label: 'AI Assistant', path: '/bde/ai-assistant' },
 ];
