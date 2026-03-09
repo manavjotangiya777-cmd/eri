@@ -21,6 +21,8 @@ import type {
   Invoice,
   AllowedNetwork,
   Notification,
+  FollowUp,
+  Warning,
 } from '@/types';
 
 const getLocalDateString = (date: Date = new Date()) => {
@@ -134,11 +136,14 @@ const fetcher = async (path: string, options: any = {}, table?: string) => {
       path.includes('tasks') ||
       path.includes('task_time_logs') ||
       path.includes('attendance') ||
-      ['chats', 'messages', 'tasks', 'task_time_logs', 'attendance'].includes(table || '');
+      path.includes('profiles') ||
+      path.includes('admin') ||
+      ['chats', 'messages', 'tasks', 'task_time_logs', 'attendance', 'profiles', 'admin'].includes(table || '');
 
     if (isCritical) {
-      console.error(`Real API call failed for ${path}:`, error);
-      throw error;
+      const errorMessage = error?.response?.data?.error || error?.message || 'Unknown error';
+      console.error(`Real API call failed for ${path}: [Status: ${error?.response?.status}] ${errorMessage}`);
+      throw new Error(errorMessage);
     }
 
     // Fall back to mock data on ANY error in this environment to ensure functionality
@@ -692,6 +697,11 @@ export const sendMessage = async (data: {
   }, 'messages') as Message | null;
 };
 
+export const deleteMessage = async (id: string, userId?: string) => {
+  const query = userId ? `messages?id=${id}&user_id=${userId}` : `messages?id=${id}`;
+  await fetcher(query, { method: 'DELETE' }, 'messages');
+};
+
 export const getOrCreateChat = async (targetUserId: string, currentUserId: string) => {
   return (await fetcher('chats/get-or-create', {
     method: 'POST',
@@ -1002,4 +1012,60 @@ export const generateAbsences = async (from: string, to: string): Promise<{ crea
 
 export const deleteAbsence = async (id: string): Promise<void> => {
   await fetcher(`absences/${id}`, { method: 'DELETE' });
+};
+
+// ── Follow-Up APIs ──
+export const getAllFollowUps = async (): Promise<FollowUp[]> => {
+  const data = await fetcher('followups', {}, 'followups');
+  return Array.isArray(data) ? data : [];
+};
+
+export const getFollowUpsByUser = async (userId: string): Promise<FollowUp[]> => {
+  const data = await fetcher(`followups?assigned_to=${userId}`, {}, 'followups');
+  return Array.isArray(data) ? data : [];
+};
+
+export const createFollowUp = async (payload: Partial<FollowUp>): Promise<FollowUp> => {
+  return await fetcher('followups', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, 'followups');
+};
+
+export const updateFollowUp = async (id: string, payload: Partial<FollowUp>): Promise<FollowUp> => {
+  return await fetcher(`followups?id=${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  }, 'followups');
+};
+
+export const deleteFollowUp = async (id: string): Promise<void> => {
+  await fetcher(`followups?id=${id}`, { method: 'DELETE' }, 'followups');
+};
+
+// ─── Warnings ────────────────────────────────────────────────
+export const getAllWarnings = async (): Promise<Warning[]> => {
+  return await fetcher('warnings', {}, 'warnings') as Warning[];
+};
+
+export const getMyWarnings = async (role: string): Promise<Warning[]> => {
+  return await fetcher(`warnings/my?role=${role}`, {}, 'warnings') as Warning[];
+};
+
+export const createWarning = async (payload: Partial<Warning>): Promise<Warning> => {
+  return await fetcher('warnings', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, 'warnings');
+};
+
+export const updateWarning = async (id: string, payload: Partial<Warning>): Promise<Warning> => {
+  return await fetcher(`warnings?id=${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  }, 'warnings');
+};
+
+export const deleteWarning = async (id: string): Promise<void> => {
+  await fetcher(`warnings?id=${id}`, { method: 'DELETE' }, 'warnings');
 };

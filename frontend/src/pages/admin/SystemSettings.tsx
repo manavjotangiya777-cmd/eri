@@ -71,6 +71,9 @@ export default function SystemSettingsPage() {
         half_day_end_time: settings.half_day_end_time,
         half_day_late_threshold: settings.half_day_late_threshold,
         half_day_work_hours: settings.half_day_work_hours,
+        overtime_enabled: settings.overtime_enabled,
+        overtime_threshold_hours: settings.overtime_threshold_hours,
+        half_day_overtime_threshold_hours: settings.half_day_overtime_threshold_hours,
         saturday_rule: settings.saturday_rule,
         saturday_off_weeks: settings.saturday_off_weeks,
         invoice_template: settings.invoice_template,
@@ -279,7 +282,57 @@ export default function SystemSettingsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                  {/* Overtime Configuration */}
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-semibold text-primary">Overtime Configuration</h4>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="overtime_enabled" className="text-xs uppercase font-bold text-muted-foreground mr-2">Enable Overtime</Label>
+                        <Select
+                          value={settings?.overtime_enabled ? "true" : "false"}
+                          onValueChange={(val) => setSettings({ ...settings, overtime_enabled: val === "true" })}
+                        >
+                          <SelectTrigger className="w-[120px] h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">Enabled</SelectItem>
+                            <SelectItem value="false">Disabled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="overtime_threshold_hours">Full Day Overtime Threshold (Hours)</Label>
+                        <Input
+                          id="overtime_threshold_hours"
+                          type="number"
+                          step="0.1"
+                          disabled={!settings?.overtime_enabled}
+                          value={settings?.overtime_threshold_hours || 8}
+                          onChange={(e) => setSettings({ ...settings, overtime_threshold_hours: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">Work after these hours will count as overtime.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="half_day_overtime_threshold_hours">Half Day Overtime Threshold (Hours)</Label>
+                        <Input
+                          id="half_day_overtime_threshold_hours"
+                          type="number"
+                          step="0.1"
+                          disabled={!settings?.overtime_enabled}
+                          value={settings?.half_day_overtime_threshold_hours || 4}
+                          onChange={(e) => setSettings({ ...settings, half_day_overtime_threshold_hours: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">Work after these hours on a half-day will count as overtime.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label htmlFor="work_hours_per_day">Expected Work Hours Per Day</Label>
                       <Input id="work_hours_per_day" type="number" step="0.5" min="1" max="24" value={settings?.work_hours_per_day || 8} onChange={(e) => setSettings({ ...settings, work_hours_per_day: parseFloat(e.target.value) })} />

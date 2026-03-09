@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -26,10 +25,11 @@ import {
   updateGroupChat,
   getCommonChat,
   uploadFile,
+  deleteMessage,
 } from '@/db/api';
 import type { Chat, Message, Profile, ChatMember } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Send, MessageSquare, Users, Settings, UserPlus, UserMinus, Shield, Paperclip, FileText, Download, X } from 'lucide-react';
+import { Send, MessageSquare, Users, Settings, UserPlus, UserMinus, Paperclip, FileText, Download, X, Trash2 } from 'lucide-react';
 import { API_URL } from '@/config';
 
 export default function ChatPage() {
@@ -81,7 +81,11 @@ export default function ChatPage() {
     }
   };
 
-  const loadMessages = async (chatId: string, shouldScroll = false) => {
+  const loadMessages = async (chatId: string | undefined, shouldScroll = false) => {
+    if (!chatId || chatId === 'undefined' || chatId === 'null') {
+      console.warn('[AdminChat] Attempted to load messages for invalid chatId:', chatId);
+      return;
+    }
     try {
       const messagesData = await getChatMessages(chatId);
       setMessages(messagesData);
@@ -108,8 +112,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!selectedChat) return;
-    const msgInterval = setInterval(() => loadMessages(selectedChat.id.toString(), false), 2000);
-    const memberInterval = setInterval(() => loadGroupMembers(selectedChat.id.toString()), 10000);
+    const msgInterval = setInterval(() => {
+      if (selectedChat?.id) loadMessages(selectedChat.id.toString(), false);
+    }, 2000);
+    const memberInterval = setInterval(() => {
+      if (selectedChat?.id) loadGroupMembers(selectedChat.id.toString());
+    }, 10000);
     return () => {
       clearInterval(msgInterval);
       clearInterval(memberInterval);
@@ -118,7 +126,7 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e: any) => {
     e.preventDefault();
-    const chatId = selectedChat?.id || (selectedChat as any)?._id;
+    const chatId = selectedChat?.id || (selectedChat as any)?._id || (selectedChat as any)?.id;
     if (!chatId) {
       toast({ title: 'Error', description: 'Chat context missing. Please refresh.', variant: 'destructive' });
       return;
@@ -146,6 +154,8 @@ export default function ChatPage() {
       toast({ title: 'Error', description: 'Failed to send. Server might be down.', variant: 'destructive' });
     } finally {
       setSending(false);
+      // Ensure we stay connected to common chat if everything fails
+      if (!selectedChat) loadInitialData();
     }
   };
 
@@ -216,42 +226,42 @@ export default function ChatPage() {
     return user?.full_name || user?.username || 'Unknown';
   };
 
-  return (
-    <AdminLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Common Chatbox</h1>
-            <p className="text-muted-foreground">Universal workspace for the entire team</p>
-          </div>
-          <Badge className="bg-primary/10 text-primary border-primary/20 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold">
-            <Shield className="h-3.5 w-3.5" /> SYSTEM ADMIN
-          </Badge>
-        </div>
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+    try {
+      await deleteMessage(messageId, profile?.id);
+      if (selectedChat) loadMessages(selectedChat.id.toString(), false);
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to delete message', variant: 'destructive' });
+    }
+  };
 
-        <Card className="flex flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[550px] shadow-2xl border-none ring-1 ring-slate-200">
+  return (
+    <AdminLayout fullWidth>
+      <div className="w-full h-full flex flex-col overflow-hidden">
+        <Card className="flex flex-col flex-1 overflow-hidden border-none shadow-none rounded-none bg-white">
           {selectedChat ? (
             <>
-              <CardHeader className="border-b flex flex-row items-center justify-between space-y-0 py-4 px-6 bg-white shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                    <Users className="h-6 w-6" />
+              <CardHeader className="border-b flex flex-row items-center justify-between space-y-0 py-5 px-8 bg-white/80 backdrop-blur-md shrink-0 z-10 shadow-sm">
+                <div className="flex items-center gap-5">
+                  <div className="h-14 w-14 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner rotate-3">
+                    <Users className="h-7 w-7" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl font-black tracking-tight">{selectedChat.group_name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{groupMembers.length} active team members</p>
+                    <CardTitle className="text-2xl font-black tracking-tighter uppercase">{selectedChat.group_name}</CardTitle>
+                    <div className="flex items-center gap-2.5 mt-0.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <p className="text-[11px] text-muted-foreground font-black uppercase tracking-widest">{groupMembers.length} ACTIVE MEMBERS</p>
                     </div>
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100" onClick={() => setGroupInfoOpen(true)}>
-                  <Settings className="h-5 w-5 text-slate-400" />
+                <Button size="icon" variant="ghost" className="rounded-full h-12 w-12 hover:bg-slate-100 transition-all border border-slate-100" onClick={() => setGroupInfoOpen(true)}>
+                  <Settings className="h-6 w-6 text-slate-400" />
                 </Button>
               </CardHeader>
 
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#F8FAFC]">
-                <ScrollArea className="h-full w-full p-6">
+                <div className="flex-1 w-full overflow-y-auto p-6 scroll-smooth px-8">
                   <div className="space-y-6">
                     {messages.length === 0 && !loading && (
                       <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
@@ -263,34 +273,45 @@ export default function ChatPage() {
                       const isOwn = message.sender_id === profile?.id || (message.sender_id as any)?._id === profile?.id;
                       const isImage = message.file_type?.startsWith('image/');
                       return (
-                        <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] space-y-1.5`}>
-                            {!isOwn && <p className="text-[10px] font-black ml-3 text-primary uppercase tracking-tighter">{getSenderName(message.sender_id)}</p>}
-                            <div className={`rounded-3xl px-5 py-3 shadow-sm border ${isOwn ? 'bg-primary text-primary-foreground border-primary rounded-br-none' : 'bg-white border-slate-100 rounded-bl-none'}`}>
-                              {message.content && <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>}
+                        <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group`}>
+                          <div className={`max-w-[75%] space-y-1`}>
+                            {!isOwn && <p className="text-[10px] font-black ml-4 text-primary uppercase tracking-widest mb-1">{getSenderName(message.sender_id)}</p>}
+                            <div className={`rounded-3xl px-6 py-3.5 shadow-sm border ${isOwn ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-primary rounded-br-none shadow-primary/20' : 'bg-white border-slate-200 rounded-bl-none shadow-slate-100'}`}>
+                              {message.content && <p className="text-[15px] leading-relaxed font-medium">{message.content}</p>}
                               {message.file_url && (
-                                <div className="mt-3 overflow-hidden rounded-2xl">
+                                <div className="mt-3 overflow-hidden rounded-[24px] ring-1 ring-black/5 shadow-lg">
                                   {isImage ? (
                                     <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer">
-                                      <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-96 object-cover hover:brightness-110 transition-all cursor-zoom-in" />
+                                      <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[450px] object-cover hover:scale-[1.02] transition-transform cursor-zoom-in" />
                                     </a>
                                   ) : (
-                                    <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors">
-                                      <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-primary">
-                                        <FileText className="h-7 w-7" />
+                                    <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-slate-50 rounded-[24px] border border-slate-100 hover:bg-slate-100 transition-all group">
+                                      <div className="h-14 w-14 bg-white rounded-2xl flex items-center justify-center shadow-md text-primary group-hover:scale-110 transition-transform">
+                                        <FileText className="h-8 w-8" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-black truncate text-slate-900">{message.file_name}</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Document File</p>
+                                        <p className="text-sm font-black truncate text-slate-900 leading-tight">{message.file_name}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Shared Document</p>
                                       </div>
-                                      <Download className="h-5 w-5 opacity-40" />
+                                      <Download className="h-5 w-5 opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all" />
                                     </a>
                                   )}
                                 </div>
                               )}
-                              <p className={`text-[9px] mt-2 text-right opacity-40 font-bold`}>
-                                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </p>
+                              <div className="flex items-center justify-between gap-2 mt-2.5">
+                                {isOwn && (
+                                  <button
+                                    onClick={() => handleDeleteMessage(message.id)}
+                                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
+                                    title="Delete Message"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <p className="text-[9px] opacity-60 font-black tracking-widest uppercase">
+                                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -298,43 +319,46 @@ export default function ChatPage() {
                     })}
                     <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                </div>
 
-                <div className="p-6 border-t bg-white">
+                <div className="p-4 border-t bg-white/50 backdrop-blur-xl shrink-0 relative">
                   {selectedFile && (
-                    <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in zoom-in-95">
+                    <div className="absolute bottom-full left-4 right-4 mb-4 p-4 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-[28px] flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 zoom-in-95 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-20">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-primary/10 overflow-hidden">
+                        <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-primary/5 overflow-hidden">
                           {selectedFile.type.startsWith('image/') ? (
                             <img src={selectedFile.url.startsWith('http') ? selectedFile.url : `${API_URL.replace('/api', '')}${selectedFile.url}`} className="h-full w-full object-cover" />
                           ) : (
-                            <FileText className="h-6 w-6 text-primary" />
+                            <FileText className="h-8 w-8 text-primary" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-black truncate">{selectedFile.name}</p>
-                          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase tracking-widest">{selectedFile.type.split('/')[1]}</span>
+                          <p className="text-sm font-black truncate text-slate-900">{selectedFile.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{selectedFile.type.split('/')[1]}</p>
+                          </div>
                         </div>
                       </div>
-                      <button className="p-2 hover:bg-destructive/10 text-destructive rounded-full transition-colors" onClick={() => setSelectedFile(null)}>
+                      <button type="button" className="h-10 w-10 flex items-center justify-center hover:bg-destructive/10 text-destructive rounded-full transition-all hover:rotate-90 hover:scale-110" onClick={() => setSelectedFile(null)}>
                         <X className="h-5 w-5" />
                       </button>
                     </div>
                   )}
-                  <form onSubmit={handleSendMessage} className="flex gap-4 items-end bg-[#F1F5F9] p-2 rounded-[28px]">
+                  <form onSubmit={handleSendMessage} className="flex gap-3 items-center bg-slate-100/80 p-2 rounded-[32px] ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-primary/20 transition-all flex-nowrap overflow-hidden shadow-inner">
                     <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                    <Button type="button" size="icon" variant="ghost" className="h-12 w-12 shrink-0 rounded-full hover:bg-white transition-all shadow-sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || sending}>
+                    <Button type="button" size="icon" variant="ghost" className="h-12 w-12 shrink-0 rounded-full hover:bg-white transition-all shadow-sm bg-white/50" onClick={() => fileInputRef.current?.click()} disabled={uploading || sending}>
                       <Paperclip className={`h-6 w-6 text-slate-500 ${uploading ? 'animate-spin' : ''}`} />
                     </Button>
-                    <Textarea
+                    <textarea
                       value={newMessage}
                       onChange={e => setNewMessage(e.target.value)}
-                      placeholder="Write a message to the team..."
-                      className="flex-1 min-h-[48px] max-h-[160px] resize-none border-none bg-transparent focus-visible:ring-0 px-4 py-3 text-sm font-medium"
+                      placeholder="Type your message here..."
+                      className="flex-1 bg-transparent border-none focus:ring-0 px-3 py-3 text-[15px] font-medium resize-none h-12 max-h-40 scrollbar-hide"
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); } }}
                       disabled={sending}
                     />
-                    <Button type="submit" size="icon" className="h-12 w-12 shrink-0 rounded-full shadow-lg shadow-primary/20" disabled={(!newMessage.trim() && !selectedFile) || sending || uploading}>
+                    <Button type="submit" size="icon" className="h-12 w-12 shrink-0 rounded-full shadow-lg bg-primary text-white hover:bg-primary/90 hover:scale-105 transition-all" disabled={(!newMessage.trim() && !selectedFile) || sending || uploading}>
                       <Send className="h-6 w-6" />
                     </Button>
                   </form>

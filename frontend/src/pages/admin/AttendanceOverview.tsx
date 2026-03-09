@@ -191,6 +191,13 @@ export default function AttendanceOverview() {
     return `${s}s`;
   };
 
+  const formatOvertimeHours = (r: AttendanceRecord | null): string => {
+    if (!r) return '-';
+    const secs = r.totals?.overtimeSeconds || 0;
+    if (!secs || secs <= 0) return '-';
+    return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
+  };
+
   const formatTime = (val: string | null): string => {
     if (!val) return '-';
     return new Date(val).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -325,7 +332,7 @@ export default function AttendanceOverview() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Records</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold">{attendance.length}</div></CardContent>
@@ -341,6 +348,14 @@ export default function AttendanceOverview() {
           <Card className="border-red-500/20">
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-red-600">❌ Absent</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold text-red-600">{totalAbsences}</div></CardContent>
+          </Card>
+          <Card className="border-purple-500/20">
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-purple-600">⚡ Total Overtime</CardTitle></CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {Math.floor(attendance.reduce((acc, a) => acc + (a.totals?.overtimeSeconds || 0), 0) / 3600)}h {Math.floor((attendance.reduce((acc, a) => acc + (a.totals?.overtimeSeconds || 0), 0) % 3600) / 60)}m
+              </div>
+            </CardContent>
           </Card>
         </div>
 
@@ -369,6 +384,7 @@ export default function AttendanceOverview() {
                       <TableHead className="font-bold min-w-[100px]">Clock Out</TableHead>
                       <TableHead className="font-bold min-w-[120px]">Work Hours</TableHead>
                       <TableHead className="font-bold min-w-[120px]">Break Hours</TableHead>
+                      <TableHead className="font-bold min-w-[120px]">Overtime</TableHead>
                       <TableHead className="font-bold min-w-[120px]">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -401,6 +417,7 @@ export default function AttendanceOverview() {
                                 Absent · {row.absenceReason}
                               </Badge>
                             </TableCell>
+                            <TableCell className="text-muted-foreground">-</TableCell>
                           </TableRow>
                         );
                       }
@@ -442,6 +459,15 @@ export default function AttendanceOverview() {
                                   {formatBreakHours(record)}
                                 </span>
                               </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {formatOvertimeHours(record) !== '-' ? (
+                              <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30 font-bold animate-pulse">
+                                {formatOvertimeHours(record)}
+                              </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}

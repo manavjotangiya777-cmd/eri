@@ -25,7 +25,8 @@ const AttendanceSchema = new mongoose.Schema({
     totals: {
         totalClockSeconds: { type: Number, default: 0 },
         totalBreakSeconds: { type: Number, default: 0 },
-        workSeconds: { type: Number, default: 0 }
+        workSeconds: { type: Number, default: 0 },
+        overtimeSeconds: { type: Number, default: 0 }
     },
     lastClockInAt: { type: Date, default: null },
     currentSessionOpen: { type: Boolean, default: false },

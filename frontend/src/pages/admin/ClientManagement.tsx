@@ -36,7 +36,6 @@ import {
   updateClient,
   deleteClient,
   getAllProfiles,
-  getProfilesByRole,
   getAllTasks,
   getClientNotes,
   createClientNote,
@@ -47,14 +46,12 @@ import {
   deleteMilestone,
   getClientInvoices,
   createInvoice,
-  updateInvoice,
-  deleteInvoice,
   adminCreateUser
 } from '@/db/api';
 import type { Client, Profile, Task, ClientNote, PaymentMilestone, Invoice } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Pencil, Trash2, Users, FileText, CheckSquare, Building2, UserPlus, CreditCard, IndianRupee, Receipt } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, FileText, CheckSquare, Building2, UserPlus, IndianRupee, Receipt } from 'lucide-react';
 import React from 'react';
 interface ClientManagementProps {
   Layout?: React.ComponentType<{ children: React.ReactNode }>;
@@ -97,6 +94,7 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
     username: '',
     password: '',
     full_name: '',
+    email: '',
   });
   const [creatingUser, setCreatingUser] = useState(false);
 
@@ -223,10 +221,10 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
     e.preventDefault();
     if (!selectedClient) return;
 
-    if (!newUser.username || !newUser.password) {
+    if (!newUser.username || !newUser.password || !newUser.full_name || !newUser.email) {
       toast({
         title: 'Error',
-        description: 'Username and password are required',
+        description: 'All fields (Full Name, Username, Email, and Password) are required',
         variant: 'destructive',
       });
       return;
@@ -237,6 +235,8 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
       const { data, error } = await adminCreateUser({
         username: newUser.username,
         password: newUser.password,
+        email: newUser.email,
+        full_name: newUser.full_name,
         role: 'client',
       });
 
@@ -250,6 +250,7 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
         // Update the profile with client role and client_id
         await updateProfile(data.user.id, {
           full_name: newUser.full_name || null,
+          email: newUser.email || null,
           role: 'client',
           client_id: selectedClient.id,
         });
@@ -259,7 +260,7 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
           description: 'Client user created successfully',
         });
 
-        setNewUser({ username: '', password: '', full_name: '' });
+        setNewUser({ username: '', password: '', full_name: '', email: '' });
         setCreateUserDialogOpen(false);
         await loadClientDetails(selectedClient.id);
       }
@@ -754,6 +755,16 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="new_fullname">Client Full Name *</Label>
+                <Input
+                  id="new_fullname"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="new_username">Username *</Label>
                 <Input
                   id="new_username"
@@ -764,12 +775,14 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new_fullname">Full Name</Label>
+                <Label htmlFor="new_email">Email ID *</Label>
                 <Input
-                  id="new_fullname"
-                  value={newUser.full_name}
-                  onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                  placeholder="John Doe"
+                  id="new_email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  placeholder="john@example.com"
+                  required
                 />
               </div>
               <div className="space-y-2">

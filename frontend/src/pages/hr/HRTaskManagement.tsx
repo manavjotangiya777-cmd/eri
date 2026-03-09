@@ -67,10 +67,17 @@ export default function HRTaskManagement() {
   const emptyTask: Partial<Task> = {
     title: '',
     description: '',
+    department: undefined,
     priority: 'medium',
     status: 'pending',
+    start_date: '',
     deadline: '',
+    estimated_time: '',
     assigned_to: null,
+    assigned_by: profile?.id || null,
+    requirements: [],
+    attachments: [],
+    review_notes: '',
   };
 
   const [formData, setFormData] = useState<Partial<Task>>(emptyTask);
@@ -139,7 +146,12 @@ export default function HRTaskManagement() {
 
   const handleEdit = (task: Task) => {
     setEditTask(task);
-    setFormData({ ...task, deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '' });
+    setFormData({
+      ...task,
+      start_date: task.start_date ? new Date(task.start_date).toISOString().slice(0, 10) : '',
+      deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 10) : '',
+      completion_date: task.completion_date ? new Date(task.completion_date).toISOString().slice(0, 10) : '',
+    });
     setDialogOpen(true);
   };
 
@@ -150,7 +162,12 @@ export default function HRTaskManagement() {
       return;
     }
     try {
-      const taskData = { ...formData, deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null };
+      const taskData = {
+        ...formData,
+        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : null,
+        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+        assigned_by: formData.assigned_by || profile?.id,
+      };
       if (editTask) {
         await updateTask(editTask.id, taskData);
         toast({ title: 'Success', description: 'Task updated successfully' });
@@ -215,7 +232,7 @@ export default function HRTaskManagement() {
 
   // ══════════ HELPERS ══════════
   const getPriorityColor = (priority: string) => ({ low: 'bg-muted', medium: 'bg-primary', high: 'bg-chart-3', urgent: 'bg-destructive' }[priority] || 'bg-muted');
-  const getStatusColor  = (status: string)   => ({ pending: 'bg-chart-3', in_progress: 'bg-primary', completed: 'bg-chart-2', cancelled: 'bg-muted' }[status] || 'bg-muted');
+  const getStatusColor = (status: string) => ({ pending: 'bg-chart-3', in_progress: 'bg-primary', completed: 'bg-chart-2', cancelled: 'bg-muted' }[status] || 'bg-muted');
 
   const getPriorityBadge = (priority: string) => ({
     high: 'bg-red-500/10 text-red-500 border-red-500/20',
@@ -431,7 +448,9 @@ export default function HRTaskManagement() {
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="review">Review</SelectItem>
                                 <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="on_hold">On Hold</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>

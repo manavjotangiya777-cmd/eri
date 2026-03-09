@@ -33,13 +33,16 @@ import {
   Shield,
   UserX,
   Calendar,
+  Bell,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
+import { useFollowUpBadge } from '@/hooks/use-followup-badge';
 import { cn } from '@/lib/utils';
 
 interface AdminLayoutProps {
   children: ReactNode;
+  fullWidth?: boolean;
 }
 
 const adminNavItems = [
@@ -48,6 +51,7 @@ const adminNavItems = [
   { icon: Building2, label: 'Departments', path: '/admin/departments' },
   { icon: Briefcase, label: 'Clients', path: '/admin/clients' },
   { icon: CheckSquare, label: 'Tasks', path: '/admin/tasks' },
+  { icon: Bell, label: 'Follow-Ups', path: '/admin/followups' },
   { icon: Receipt, label: 'Invoices', path: '/admin/invoices' },
   { icon: Clock, label: 'Attendance', path: '/admin/attendance' },
   { icon: Calendar, label: 'HR Leave Requests', path: '/admin/hr-leaves' },
@@ -59,7 +63,7 @@ const adminNavItems = [
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout({ children, fullWidth = false }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
@@ -77,6 +81,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const NavContent = () => {
     const unreadChatCount = useChatUnread();
+    const followUpBadge = useFollowUpBadge();
 
     return (
       <div className="flex flex-col h-full">
@@ -107,6 +112,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             const isChat = item.label === 'Chat';
+            const isFollowUp = item.label === 'Follow-Ups';
 
             return (
               <Link
@@ -125,6 +131,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 {isChat && unreadChatCount > 0 && (
                   <Badge variant="destructive" className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                     {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                  </Badge>
+                )}
+                {isFollowUp && followUpBadge > 0 && (
+                  <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full bg-amber-500 hover:bg-amber-500">
+                    {followUpBadge > 9 ? '9+' : followUpBadge}
                   </Badge>
                 )}
               </Link>
@@ -196,8 +207,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </DropdownMenu>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-slate-50/10">
-          <div className="w-full space-y-6">
+        <main className={cn("flex-1 bg-slate-50/10 min-h-0 flex flex-col", fullWidth ? "p-0" : "p-4 md:p-6 lg:p-8 overflow-y-auto")}>
+          <div className={cn("w-full flex-1 min-h-0 flex flex-col", !fullWidth && "space-y-6")}>
             {children}
           </div>
         </main>

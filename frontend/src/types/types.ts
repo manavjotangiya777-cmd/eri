@@ -1,6 +1,73 @@
 export type UserRole = 'admin' | 'hr' | 'employee' | 'client' | 'bde';
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskStatus = 'pending' | 'in_progress' | 'review' | 'completed' | 'on_hold' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type WarningSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface Warning {
+  id: string;
+  title: string;
+  message: string;
+  severity: WarningSeverity;
+  target_role: 'all' | 'employee' | 'bde' | 'hr';
+  created_by: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskWorkUpdate {
+  _id?: string;
+  text: string;
+  updated_by?: string | null;
+  updated_at?: string;
+}
+
+export interface TaskAttachment {
+  _id?: string;
+  name: string;
+  url: string;
+  type: 'file' | 'link';
+}
+
+export type FollowUpStatus = 'pending' | 'in_followup' | 'waiting_client' | 'completed';
+export type FollowUpTaskType =
+  | 'update_levanu'
+  | 'work_karavanu'
+  | 'document_collect'
+  | 'client_followup'
+  | 'payment_followup'
+  | 'internal_coordination';
+export type FollowUpCommunicationMethod = 'call' | 'whatsapp' | 'email' | 'meeting' | 'other';
+export type FollowUpRelatedType = 'client' | 'employee' | 'vendor' | 'department' | 'other';
+
+export interface FollowUpUpdateNote {
+  _id?: string;
+  text: string;
+  noted_by?: string | null;
+  noted_at?: string;
+}
+
+export interface FollowUp {
+  id: string;
+  followup_id: string | null;
+  title: string;
+  task_type: FollowUpTaskType;
+  related_name: string | null;
+  related_type: FollowUpRelatedType;
+  assigned_to: string | null;
+  assigned_by: string | null;
+  description: string | null;
+  required_items: string[];
+  communication_method: FollowUpCommunicationMethod;
+  deadline: string | null;
+  next_action_date: string | null;
+  status: FollowUpStatus;
+  update_notes: FollowUpUpdateNote[];
+  related_task_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
 export type ClientStatus = 'active' | 'inactive';
 
@@ -67,14 +134,24 @@ export interface ClientNote {
 
 export interface Task {
   id: string;
+  task_id: string | null;
   title: string;
   description: string | null;
+  department: string | null;
   priority: TaskPriority;
   status: TaskStatus;
+  start_date: string | null;
   deadline: string | null;
+  completion_date: string | null;
+  estimated_time: string | null;
   assigned_to: string | null;
+  assigned_by: string | null;
   client_id: string | null;
   created_by: string | null;
+  requirements: string[];
+  attachments: TaskAttachment[];
+  work_updates: TaskWorkUpdate[];
+  review_notes: string | null;
   total_time_spent: number; // in seconds
   created_at: string;
   updated_at: string;

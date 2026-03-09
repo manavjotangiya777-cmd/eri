@@ -215,7 +215,7 @@ export default function ClientSupportChatPage({ Layout }: ClientSupportChatPageP
                                     </ScrollArea>
 
                                     {/* Message Input */}
-                                    <div className="border-t p-3 bg-background">
+                                    <div className="border-t p-3 bg-background shrink-0">
                                         <form onSubmit={handleSend} className="flex gap-2">
                                             <Input
                                                 placeholder={`Message ${selectedClient.full_name || selectedClient.username}...`}

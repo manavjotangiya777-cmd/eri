@@ -28,6 +28,8 @@ const TaskTimeLog = require('../models/TaskTimeLog');
 const ClientNote = require('../models/ClientNote');
 const AllowedNetwork = require('../models/AllowedNetwork');
 const Notification = require('../models/Notification');
+const FollowUp = require('../models/FollowUp');
+const Warning = require('../models/Warning');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Request Logging Middleware
@@ -253,6 +255,36 @@ router.get('/attendance/today', async (req, res) => {
 });
 
 router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
+    // ── Helper: compute is_late + late_minutes for a user at a given time ──
+    const computeLateness = async (userId, now) => {
+        const settings = await SystemSettings.findOne();
+        const user = await Profile.findById(userId);
+        const shiftType = user?.shift_type || 'full_day';
+
+        // Use schema defaults if settings doc doesn't exist
+        const startTime = shiftType === 'half_day'
+            ? (settings?.half_day_start_time || '09:00')
+            : (settings?.work_start_time || '09:00');
+        const threshold = shiftType === 'half_day'
+            ? (settings?.half_day_late_threshold ?? 15)
+            : (settings?.late_threshold_minutes ?? 15);
+
+        if (!startTime) return { is_late: false, late_minutes: 0 };
+
+        const [h, m] = startTime.split(':').map(Number);
+        const workStart = new Date(now);
+        workStart.setHours(h, m, 0, 0);
+        const lateLimit = new Date(workStart.getTime() + threshold * 60000);
+
+        if (now > lateLimit) {
+            return {
+                is_late: true,
+                late_minutes: Math.floor((now.getTime() - workStart.getTime()) / 60000)
+            };
+        }
+        return { is_late: false, late_minutes: 0 };
+    };
+
     try {
         const { user_id } = req.body;
         const now = new Date();
@@ -264,59 +296,16 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
             if (record.currentSessionOpen) return res.status(400).json({ error: 'Already working' });
             if (record.status === 'on_break') return res.status(400).json({ error: 'Cannot clock in while on break' });
 
-            // If the record exists but lateness wasn't calculated (e.g. manually created record or previous clock-out), 
-            // and this is the FIRST session of the day, calculate it now.
-            if (!record.is_late && record.sessions.length === 0) {
-                const settings = await SystemSettings.findOne() || {};
-                const user = await Profile.findById(user_id);
-                const shiftType = user?.shift_type || 'full_day';
-
-                const startTime = shiftType === 'half_day' ? settings.half_day_start_time : settings.work_start_time;
-                const threshold = shiftType === 'half_day' ? (settings.half_day_late_threshold || 0) : (settings.late_threshold_minutes || 0);
-
-                if (startTime) {
-                    const [h, m] = startTime.split(':').map(Number);
-                    const workStart = new Date(now);
-                    workStart.setHours(h, m, 0, 0);
-                    const lateLimit = new Date(workStart.getTime() + (threshold * 60000));
-
-                    if (now > lateLimit) {
-                        record.is_late = true;
-                        record.late_minutes = Math.floor((now.getTime() - workStart.getTime()) / 60000);
-                    }
-                }
+            // Recalculate lateness only on the very first session of the day
+            if (record.sessions.length === 0) {
+                const { is_late, late_minutes } = await computeLateness(user_id, now);
+                record.is_late = is_late;
+                record.late_minutes = late_minutes;
             }
         } else {
-            // Check for lateness on first clock-in of the day
-            const settings = await SystemSettings.findOne() || {};
-            const user = await Profile.findById(user_id);
-            const shiftType = user?.shift_type || 'full_day';
-
-            const startTime = shiftType === 'half_day' ? settings.half_day_start_time : settings.work_start_time;
-            const threshold = shiftType === 'half_day' ? (settings.half_day_late_threshold || 0) : (settings.late_threshold_minutes || 0);
-
-            let is_late = false;
-            let late_minutes = 0;
-
-            if (startTime) {
-                const [h, m] = startTime.split(':').map(Number);
-                const workStart = new Date(now);
-                workStart.setHours(h, m, 0, 0);
-
-                const lateLimit = new Date(workStart.getTime() + (threshold * 60000));
-
-                if (now > lateLimit) {
-                    is_late = true;
-                    late_minutes = Math.floor((now.getTime() - workStart.getTime()) / 60000);
-                }
-            }
-
-            record = await Attendance.create({
-                user_id,
-                date: today,
-                is_late,
-                late_minutes
-            });
+            // Brand-new record — compute lateness for the first clock-in
+            const { is_late, late_minutes } = await computeLateness(user_id, now);
+            record = await Attendance.create({ user_id, date: today, is_late, late_minutes });
         }
 
         record.sessions.push({ clockInAt: now });
@@ -355,6 +344,27 @@ router.post('/attendance/clock-out', ensureOfficeNetwork, async (req, res) => {
         // Update totals
         record.totals.totalClockSeconds += diffSeconds;
         record.totals.workSeconds = record.totals.totalClockSeconds - record.totals.totalBreakSeconds;
+
+        // ── Overtime Calculation ──────────────────────────────────────
+        try {
+            const settings = await SystemSettings.findOne();
+            const user = await Profile.findById(user_id);
+            const shiftType = user?.shift_type || 'full_day';
+            const overtimeEnabled = settings?.overtime_enabled !== false; // defaults true
+
+            if (overtimeEnabled) {
+                const thresholdHours = shiftType === 'half_day'
+                    ? (settings?.half_day_overtime_threshold_hours ?? 4)
+                    : (settings?.overtime_threshold_hours ?? 8);
+                const thresholdSeconds = thresholdHours * 3600;
+                const overtime = Math.max(0, record.totals.workSeconds - thresholdSeconds);
+                record.totals.overtimeSeconds = overtime;
+            } else {
+                record.totals.overtimeSeconds = 0;
+            }
+        } catch (e) {
+            record.totals.overtimeSeconds = 0; // silently skip if settings unavailable
+        }
 
         record.status = 'clocked_out';
         record.currentSessionOpen = false;
@@ -753,6 +763,69 @@ defineStandardRoutes('/leaves', Leave);
 defineStandardRoutes('/departments', Department);
 defineStandardRoutes('/designations', Designation, 'departments');
 defineStandardRoutes('/holidays', Holiday);
+defineStandardRoutes('/followups', FollowUp);
+
+// ─── Warning Routes ───────────────────────────────────────────────
+router.get('/warnings/my', async (req, res) => {
+    try {
+        const { role } = req.query;
+        const query = {
+            is_active: true,
+            $or: [
+                { target_role: 'all' },
+                { target_role: role }
+            ]
+        };
+        const warnings = await Warning.find(query).sort({ created_at: -1 });
+        res.json(warnings.map(w => { const o = w.toObject({ virtuals: true }); o.id = o._id.toString(); return o; }));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/warnings', async (req, res) => {
+    try {
+        const warnings = await Warning.find().sort({ created_at: -1 });
+        res.json(warnings.map(w => { const o = w.toObject({ virtuals: true }); o.id = o._id.toString(); return o; }));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/warnings', async (req, res) => {
+    try {
+        const w = await Warning.create(req.body);
+        const o = w.toObject({ virtuals: true }); o.id = o._id.toString();
+        res.status(201).json(o);
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+router.patch('/warnings', async (req, res) => {
+    const { id } = req.query;
+    try {
+        const w = await Warning.findByIdAndUpdate(id, req.body, { new: true });
+        if (!w) return res.status(404).json({ error: 'Not found' });
+        const o = w.toObject({ virtuals: true }); o.id = o._id.toString();
+        res.json(o);
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+router.delete('/warnings', async (req, res) => {
+    const { id } = req.query;
+    try {
+        await Warning.findByIdAndDelete(id);
+        res.json({ success: true });
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+// ─────────────────────────────────────────────────────────────────
+
+// /announcements/my MUST be before /announcements to avoid route shadowing
+router.get('/announcements/my', async (req, res) => {
+    try {
+        const announcements = await Announcement.find().sort({ created_at: -1 });
+        res.json(announcements.map(a => {
+            const o = a.toObject({ virtuals: true });
+            o.id = o._id.toString();
+            return o;
+        }));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 router.get('/announcements', async (req, res) => {
     try {
@@ -782,19 +855,6 @@ router.delete('/announcements', async (req, res) => {
         await Announcement.findByIdAndDelete(id);
         res.json({ success: true });
     } catch (err) { res.status(400).json({ error: err.message }); }
-});
-
-// Custom My Routes for Frontend
-router.get('/announcements/my', async (req, res) => {
-    try {
-        // For now, announcements are global as the model doesn't have target_role
-        const announcements = await Announcement.find().sort({ created_at: -1 });
-        res.json(announcements.map(a => {
-            const o = a.toObject({ virtuals: true });
-            o.id = o._id.toString();
-            return o;
-        }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.get('/documents/my', async (req, res) => {
@@ -1180,16 +1240,53 @@ router.post('/chats/leave', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Delete a message — only the sender can delete their own message
+router.delete('/messages', async (req, res) => {
+    try {
+        const { id, user_id } = req.query;
+        if (!id) return res.status(400).json({ error: 'Message id is required' });
+
+        const msg = await Message.findById(id);
+        if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+        // If user_id is provided, enforce ownership
+        if (user_id && user_id !== 'undefined') {
+            const userObjId = toObjectId(user_id);
+            const senderStr = msg.sender_id ? msg.sender_id.toString() : null;
+            const userStr = userObjId ? userObjId.toString() : null;
+            if (senderStr && userStr && senderStr !== userStr) {
+                return res.status(403).json({ error: 'You can only delete your own messages' });
+            }
+        }
+
+        await msg.deleteOne();
+        res.status(204).send();
+    } catch (err) {
+        console.error('DELETE /messages error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- Messages Routes (Custom) ---
 
 // Get messages for a chat
 router.get('/messages', async (req, res) => {
     try {
         const { chat_id } = req.query;
-        if (!chat_id) return res.status(400).json({ error: 'chat_id is required' });
-        const chatObjId = toObjectId(chat_id);
-        const msgs = await Message.find({ chat_id: chatObjId }).sort({ created_at: 1 });
-        res.json(msgs.map(m => { const o = m.toObject({ virtuals: true }); o.id = o._id.toString(); return o; }));
+        let query = {};
+        let sort = { created_at: -1 }; // Default to recent first
+
+        if (chat_id && chat_id !== 'undefined' && chat_id !== 'all') {
+            query.chat_id = toObjectId(chat_id);
+            sort = { created_at: 1 }; // For specific chat, sort by time (old to new)
+        }
+
+        const msgs = await Message.find(query).sort(sort).limit(100);
+        res.json(msgs.map(m => {
+            const o = m.toObject({ virtuals: true });
+            o.id = o._id.toString();
+            return o;
+        }));
     } catch (err) {
         console.error('GET /messages error:', err);
         res.status(500).json({ error: err.message });
@@ -1455,7 +1552,7 @@ router.delete('/chat_members', async (req, res) => {
 // Admin: Create User
 router.post('/admin/create-user', async (req, res) => {
     try {
-        const { username, password, role, full_name, department, designation_id, client_id, is_active, email, phone } = req.body;
+        const { username, password, role, full_name, department, designation_id, client_id, is_active, email, phone, shift_type, date_of_birth } = req.body;
 
         // Build user data with proper casting
         const userData = {
@@ -1468,7 +1565,9 @@ router.post('/admin/create-user', async (req, res) => {
             department: department || null,
             designation_id: toObjectId(designation_id),
             client_id: toObjectId(client_id),
-            is_active: is_active !== undefined ? is_active : true
+            is_active: is_active !== undefined ? is_active : true,
+            shift_type: shift_type || 'full_day',
+            date_of_birth: date_of_birth || null
         };
 
         const user = await Profile.create(userData);

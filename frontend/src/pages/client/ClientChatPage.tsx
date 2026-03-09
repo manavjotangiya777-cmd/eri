@@ -3,12 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import ClientLayout from '@/components/layouts/ClientLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Profile, Chat, Message } from '@/types';
-import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, getAllProfiles } from '@/db/api';
+import { getOrCreateChat, getChatMessages, sendMessage, markMessagesAsRead, getAllProfiles, deleteMessage } from '@/db/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, User, MessageSquare } from 'lucide-react';
+import { Send, User, MessageSquare, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ClientChatPage() {
@@ -29,21 +29,18 @@ export default function ClientChatPage() {
     async function fetchAdmins() {
       if (!profile?.id) return;
       try {
-        // Clear all chat notifications when client lands here
         await markMessagesAsRead('all', profile.id);
         window.dispatchEvent(new CustomEvent('chat-read'));
 
         const users = await getAllProfiles();
-        // Fetch Admin and BDE users that the client can chat with
         const filteredAdmins = users.filter(u => ['admin', 'bde'].includes(u.role) && u.is_active);
         setAdmins(filteredAdmins);
       } catch (error) {
         console.error('Error fetching admins:', error);
       }
     }
-
     fetchAdmins();
-  }, []);
+  }, [profile?.id]);
 
   const loadMessages = async (chatId: string) => {
     if (!profile?.id) return;
@@ -58,12 +55,20 @@ export default function ClientChatPage() {
     }
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+    try {
+      await deleteMessage(messageId, profile?.id);
+      if (currentChat) loadMessages(currentChat.id);
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to delete message', variant: 'destructive' });
+    }
+  };
+
   const startChat = async (admin: Profile) => {
     if (!profile?.id) return;
     setSelectedAdmin(admin);
-
     try {
-      // getOrCreateChat(targetUserId, currentUserId)
       const chat = await getOrCreateChat(admin.id, profile.id);
       setCurrentChat(chat);
       if (chat) {
@@ -81,18 +86,15 @@ export default function ClientChatPage() {
 
   useEffect(() => {
     if (!currentChat) return;
-
     const interval = setInterval(() => {
       loadMessages(currentChat.id);
     }, 5000);
-
     return () => clearInterval(interval);
   }, [currentChat]);
 
   const handleSendMessage = async (e: any) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentChat || !profile?.id) return;
-
     try {
       await sendMessage({
         chat_id: currentChat.id,
@@ -151,23 +153,34 @@ export default function ClientChatPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
-                <ScrollArea className="flex-1 pr-4">
+                <div className="flex-1 overflow-y-auto pr-4 scroll-smooth">
                   <div className="space-y-4">
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex ${msg.sender_id === profile?.id ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${msg.sender_id === profile?.id ? 'justify-end' : 'justify-start'} group`}
                       >
                         <div
-                          className={`max-w-[80%] px-4 py-2 rounded-lg ${msg.sender_id === profile?.id
+                          className={`max-w-[80%] px-4 py-2 rounded-lg relative ${msg.sender_id === profile?.id
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted text-foreground'
                             }`}
                         >
                           <p className="text-sm">{msg.content}</p>
-                          <p className="text-[10px] opacity-70 mt-1">
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                          <div className="flex items-center justify-between gap-2 mt-1">
+                            {msg.sender_id === profile?.id && (
+                              <button
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
+                                title="Delete Message"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                            <p className="text-[10px] opacity-70 ml-auto">
+                              {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -178,8 +191,8 @@ export default function ClientChatPage() {
                     )}
                     <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
-                <form onSubmit={handleSendMessage} className="mt-4 flex gap-2">
+                </div>
+                <form onSubmit={handleSendMessage} className="mt-4 flex gap-2 shrink-0">
                   <Input
                     placeholder="Type your message..."
                     value={newMessage}
@@ -202,4 +215,3 @@ export default function ClientChatPage() {
     </ClientLayout>
   );
 }
-

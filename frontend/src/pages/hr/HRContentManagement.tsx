@@ -45,11 +45,15 @@ import {
   sendNotification,
   getAllNotifications,
   deleteNotification,
+  getAllFollowUps,
+  getAllWarnings,
+  createWarning,
+  deleteWarning,
 } from '@/db/api';
-import type { Holiday, Announcement, Profile, Client, Document, Notification } from '@/types';
+import type { Holiday, Announcement, Profile, Client, Document, Notification, FollowUp, Warning } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Trash2, Calendar, Bell, Cake, FileText, Upload } from 'lucide-react';
+import { Plus, Trash2, Calendar, Bell, Cake, FileText, Upload, Phone, MessageCircle, Mail, Video, ChevronRight, AlertTriangle, ShieldAlert } from 'lucide-react';
 import React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -61,11 +65,14 @@ export default function HRContentManagement() {
   const [clients, setClients] = useState<Client[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [warnings, setWarnings] = useState<Warning[]>([]);
   const [loading, setLoading] = useState(true);
   const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
   const [announcementDialogOpen, setAnnouncementDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
+  const [warningDialogOpen, setWarningDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const [holidayForm, setHolidayForm] = useState({
@@ -100,16 +107,26 @@ export default function HRContentManagement() {
 
   const [uploading, setUploading] = useState(false);
 
+  const [warningForm, setWarningForm] = useState({
+    title: '',
+    message: '',
+    severity: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+    target_role: 'all' as 'all' | 'employee' | 'bde' | 'hr',
+    expires_at: '',
+  });
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [holidaysData, announcementsData, employeesData, clientsData, documentsData, notificationsData] = await Promise.all([
+      const [holidaysData, announcementsData, employeesData, clientsData, documentsData, notificationsData, allFollowUps, warningsData] = await Promise.all([
         getAllHolidays(),
         getAllAnnouncements(),
-        getAllProfiles(), // This will now call the locally defined getAllProfiles
+        getAllProfiles(),
         getAllClients(),
         getAllDocuments(),
         getAllNotifications(),
+        getAllFollowUps(),
+        getAllWarnings(),
       ]);
       setHolidays(holidaysData);
       setAnnouncements(announcementsData);
@@ -117,6 +134,10 @@ export default function HRContentManagement() {
       setClients(clientsData);
       setDocuments(documentsData);
       setNotifications(notificationsData);
+      setWarnings(warningsData);
+      setFollowUps(allFollowUps.filter(
+        (f: FollowUp) => f.assigned_to === profile?.id || (f.assigned_to as any)?._id === profile?.id
+      ));
     } catch (error) {
       toast({
         title: 'Error',
@@ -371,6 +392,42 @@ export default function HRContentManagement() {
     }
   };
 
+  const handleAddWarning = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!warningForm.title || !warningForm.message) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+    try {
+      await createWarning({
+        title: warningForm.title,
+        message: warningForm.message,
+        severity: warningForm.severity,
+        target_role: warningForm.target_role,
+        expires_at: warningForm.expires_at ? new Date(warningForm.expires_at).toISOString() : null,
+        created_by: profile?.id || null,
+        is_active: true,
+      });
+      toast({ title: 'Warning Posted', description: 'Warning published successfully' });
+      setWarningForm({ title: '', message: '', severity: 'medium', target_role: 'all', expires_at: '' });
+      setWarningDialogOpen(false);
+      loadData();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to post warning', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteWarning = async (id: string) => {
+    if (!confirm('Delete this warning?')) return;
+    try {
+      await deleteWarning(id);
+      toast({ title: 'Warning Deleted' });
+      loadData();
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to delete warning', variant: 'destructive' });
+    }
+  };
+
   return (
     <HRLayout>
       <div className="space-y-6">
@@ -387,7 +444,7 @@ export default function HRContentManagement() {
         </div>
 
         <Tabs defaultValue="holidays" className="w-full space-y-6">
-          <TabsList className="flex flex-wrap md:grid w-full grid-cols-2 md:grid-cols-5 h-auto p-1.5 bg-muted/30 backdrop-blur-sm rounded-2xl border border-muted-foreground/5 sticky top-0 z-10">
+          <TabsList className="flex flex-wrap md:grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1.5 bg-muted/30 backdrop-blur-sm rounded-2xl border border-muted-foreground/5 sticky top-0 z-10">
             <TabsTrigger value="holidays" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
               <Calendar className="h-4 w-4 mr-2 text-primary/70" />
               Holidays
@@ -400,6 +457,15 @@ export default function HRContentManagement() {
               <Bell className="h-4 w-4 mr-2 text-primary/70" />
               Announcements
             </TabsTrigger>
+            <TabsTrigger value="followups" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
+              <Bell className="h-4 w-4 mr-2 text-amber-500" />
+              My Follow-Ups
+              {followUps.filter(f => f.status !== 'completed').length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center">
+                  {followUps.filter(f => f.status !== 'completed').length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="documents" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
               <FileText className="h-4 w-4 mr-2 text-primary/70" />
               Documents
@@ -407,6 +473,15 @@ export default function HRContentManagement() {
             <TabsTrigger value="notifications" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
               <Bell className="h-4 w-4 mr-2 text-primary/70" />
               Notifications
+            </TabsTrigger>
+            <TabsTrigger value="warnings" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+              <AlertTriangle className="h-4 w-4 mr-2 text-red-500" />
+              Warnings
+              {warnings.filter(w => w.is_active).length > 0 && (
+                <span className="ml-1.5 bg-red-500 text-white text-[9px] font-black rounded-full h-4 w-4 inline-flex items-center justify-center">
+                  {warnings.filter(w => w.is_active).length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -626,6 +701,111 @@ export default function HRContentManagement() {
             </Card>
           </TabsContent>
 
+          {/* ── MY FOLLOW-UPS TAB (HR) ── */}
+          <TabsContent value="followups" className="space-y-4">
+            <div className="grid gap-5">
+              {followUps.length === 0 ? (
+                <Card className="border-dashed border-amber-200">
+                  <CardContent className="text-center py-14 text-muted-foreground flex flex-col items-center gap-3">
+                    <Bell className="h-10 w-10 opacity-20 text-amber-500" />
+                    <p className="font-semibold">No follow-ups assigned to you</p>
+                    <p className="text-sm">Admin will assign follow-ups from the Follow-Up Management panel</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                followUps.map((fu) => {
+                  const statusColors: Record<string, string> = {
+                    pending: 'bg-amber-100 text-amber-700 border-amber-200',
+                    in_followup: 'bg-blue-100 text-blue-700 border-blue-200',
+                    waiting_client: 'bg-purple-100 text-purple-700 border-purple-200',
+                    completed: 'bg-green-100 text-green-700 border-green-200',
+                  };
+                  const statusLabels: Record<string, string> = {
+                    pending: 'Pending', in_followup: 'In Follow-Up',
+                    waiting_client: 'Waiting From Client', completed: 'Completed',
+                  };
+                  const commIcons: Record<string, React.ReactNode> = {
+                    call: <Phone className="h-3.5 w-3.5" />,
+                    whatsapp: <MessageCircle className="h-3.5 w-3.5 text-green-500" />,
+                    email: <Mail className="h-3.5 w-3.5 text-blue-500" />,
+                    meeting: <Video className="h-3.5 w-3.5 text-purple-500" />,
+                  };
+                  const isOverdue = fu.deadline && fu.status !== 'completed' && new Date(fu.deadline) < new Date();
+                  return (
+                    <Card key={fu.id} className={`group hover:shadow-xl transition-all duration-300 border-l-4 overflow-hidden ${fu.status === 'completed' ? 'border-l-green-500 opacity-70' :
+                      isOverdue ? 'border-l-red-500' : 'border-l-amber-500'
+                      }`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="space-y-1">
+                            <p className="text-xs font-mono text-muted-foreground">{fu.followup_id || ''}</p>
+                            <CardTitle className="text-xl font-black">{fu.title}</CardTitle>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {commIcons[fu.communication_method] || <Bell className="h-3.5 w-3.5" />}
+                              <span className="capitalize">{fu.communication_method}</span>
+                              {fu.related_name && <><span>•</span><span>{fu.related_name} ({fu.related_type})</span></>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={`border text-xs ${statusColors[fu.status] || ''}`}>
+                              {statusLabels[fu.status] || fu.status}
+                            </Badge>
+                            {isOverdue && <Badge className="bg-red-100 text-red-700 border-red-200 border text-xs">⚠️ Overdue</Badge>}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {fu.description && (
+                          <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-xl leading-relaxed">{fu.description}</p>
+                        )}
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {fu.deadline && (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Deadline:</span>
+                              <span className={`font-semibold ${isOverdue ? 'text-red-600' : ''}`}>
+                                {new Date(fu.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                          )}
+                          {fu.next_action_date && (
+                            <div className="flex items-center gap-2">
+                              <Bell className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Next Action:</span>
+                              <span className="font-semibold">
+                                {new Date(fu.next_action_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {(fu.required_items || []).length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Required Items</p>
+                            <ul className="space-y-1">
+                              {fu.required_items.map((item, i) => (
+                                <li key={i} className="flex items-center gap-2 text-sm">
+                                  <ChevronRight className="h-3.5 w-3.5 text-amber-500 shrink-0" />{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {(fu.update_notes || []).length > 0 && (
+                          <div className="border-t pt-3">
+                            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Latest Update</p>
+                            <div className="p-3 bg-amber-50 rounded-xl border-l-4 border-amber-400">
+                              <p className="text-sm font-medium">{fu.update_notes[fu.update_notes.length - 1].text}</p>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="documents" className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={() => setDocumentDialogOpen(true)}>
@@ -754,6 +934,69 @@ export default function HRContentManagement() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── WARNINGS TAB ── */}
+          <TabsContent value="warnings" className="space-y-4">
+            <div className="flex justify-end">
+              <Button onClick={() => setWarningDialogOpen(true)} className="gap-2 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20">
+                <Plus className="h-4 w-4" />
+                Post Warning
+              </Button>
+            </div>
+            <div className="grid gap-4">
+              {loading ? (
+                <div className="text-center py-10"><div className="animate-spin h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full mx-auto" /></div>
+              ) : warnings.length === 0 ? (
+                <Card className="border-dashed border-red-200">
+                  <CardContent className="text-center py-14 flex flex-col items-center gap-3">
+                    <ShieldAlert className="h-12 w-12 opacity-20 text-red-500" />
+                    <p className="font-semibold text-muted-foreground">No warnings posted yet</p>
+                    <p className="text-sm text-muted-foreground">Post a warning for employees or BDE</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                warnings.map((w) => {
+                  const sevConfig: Record<string, { bg: string; border: string; badge: string; icon: string }> = {
+                    low: { bg: 'bg-blue-50', border: 'border-l-blue-400', badge: 'bg-blue-100 text-blue-800', icon: 'ℹ️' },
+                    medium: { bg: 'bg-amber-50', border: 'border-l-amber-400', badge: 'bg-amber-100 text-amber-800', icon: '⚠️' },
+                    high: { bg: 'bg-orange-50', border: 'border-l-orange-500', badge: 'bg-orange-100 text-orange-800', icon: '🔶' },
+                    critical: { bg: 'bg-red-50', border: 'border-l-red-600', badge: 'bg-red-100 text-red-800', icon: '🚨' },
+                  };
+                  const sc = sevConfig[w.severity] || sevConfig.medium;
+                  return (
+                    <div key={w.id} className={`rounded-2xl border-l-4 p-5 ${sc.bg} ${sc.border} shadow-sm flex items-start justify-between gap-4 group hover:shadow-md transition-all`}>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-lg">{sc.icon}</span>
+                          <h3 className="font-black text-lg">{w.title}</h3>
+                          <span className={`text-[10px] uppercase font-black tracking-widest px-2 py-0.5 rounded-full ${sc.badge}`}>
+                            {w.severity}
+                          </span>
+                          <span className="text-[10px] uppercase font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                            → {w.target_role === 'all' ? 'Everyone' : w.target_role}
+                          </span>
+                          {!w.is_active && <span className="text-[10px] font-bold text-muted-foreground">[Inactive]</span>}
+                        </div>
+                        <p className="text-sm leading-relaxed text-slate-700">{w.message}</p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>{new Date(w.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          {w.expires_at && <span>Expires: {new Date(w.expires_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 hover:text-red-600 rounded-full"
+                        onClick={() => handleDeleteWarning(w.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -983,6 +1226,78 @@ export default function HRContentManagement() {
                 <Button type="submit" disabled={uploading}>
                   {uploading ? 'Uploading...' : 'Upload Document'}
                 </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── WARNING DIALOG ── */}
+        <Dialog open={warningDialogOpen} onOpenChange={setWarningDialogOpen}>
+          <DialogContent className="sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Post Warning
+              </DialogTitle>
+              <DialogDescription>Post a warning notice visible to employees and/or BDE members.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAddWarning} className="space-y-4 pt-3">
+              <div className="space-y-2">
+                <Label>Warning Title *</Label>
+                <Input
+                  placeholder="e.g. Attendance Policy Reminder"
+                  value={warningForm.title}
+                  onChange={e => setWarningForm({ ...warningForm, title: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Message *</Label>
+                <Textarea
+                  placeholder="Describe the warning in detail..."
+                  value={warningForm.message}
+                  onChange={e => setWarningForm({ ...warningForm, message: e.target.value })}
+                  rows={4}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Severity</Label>
+                  <Select value={warningForm.severity} onValueChange={v => setWarningForm({ ...warningForm, severity: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">ℹ️ Low</SelectItem>
+                      <SelectItem value="medium">⚠️ Medium</SelectItem>
+                      <SelectItem value="high">🔶 High</SelectItem>
+                      <SelectItem value="critical">🚨 Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Visible To</Label>
+                  <Select value={warningForm.target_role} onValueChange={v => setWarningForm({ ...warningForm, target_role: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Everyone</SelectItem>
+                      <SelectItem value="employee">Employees Only</SelectItem>
+                      <SelectItem value="bde">BDE Only</SelectItem>
+                      <SelectItem value="hr">HR Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Expiry Date (optional)</Label>
+                <Input
+                  type="date"
+                  value={warningForm.expires_at}
+                  onChange={e => setWarningForm({ ...warningForm, expires_at: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setWarningDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" className="bg-red-600 hover:bg-red-700">Post Warning</Button>
               </div>
             </form>
           </DialogContent>

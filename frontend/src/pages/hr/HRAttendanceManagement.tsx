@@ -142,6 +142,14 @@ export default function HRAttendanceManagement() {
     return `${s}s`;
   };
 
+  const formatOvertimeHours = (r: AttendanceRecord | null): string => {
+    if (!r) return '-';
+    // If backend already totals it:
+    const secs = r.totals?.overtimeSeconds || 0;
+    if (!secs || secs <= 0) return '-';
+    return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
+  };
+
   const formatTime = (val: string | null): string => {
     if (!val) return '-';
     return new Date(val).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -202,10 +210,10 @@ export default function HRAttendanceManagement() {
       const existing: any[] = editRecord.sessions || [];
       const updated = existing.length > 0
         ? existing.map((s: any, i: number) => ({
-            ...s,
-            ...(i === 0 && clockInISO ? { clockInAt: clockInISO } : {}),
-            ...(i === existing.length - 1 && clockOutISO ? { clockOutAt: clockOutISO } : {}),
-          }))
+          ...s,
+          ...(i === 0 && clockInISO ? { clockInAt: clockInISO } : {}),
+          ...(i === existing.length - 1 && clockOutISO ? { clockOutAt: clockOutISO } : {}),
+        }))
         : [{ clockInAt: clockInISO, clockOutAt: clockOutISO, durationSeconds: 0 }];
       await updateAttendance(editRecord.id || editRecord._id, { sessions: updated } as any);
       toast({ title: 'Success', description: 'Attendance updated' });
@@ -251,7 +259,6 @@ export default function HRAttendanceManagement() {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
   const absentCount = absences.filter(a => !attendanceKeys.has(`${a.user_id?._id?.toString() || a.user_id?.toString?.() || ''}_${a.date}`)).length;
 
   return (
@@ -266,7 +273,7 @@ export default function HRAttendanceManagement() {
         </div>
 
         {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Records</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold">{attendance.length}</div></CardContent>
@@ -282,6 +289,14 @@ export default function HRAttendanceManagement() {
           <Card className="border-red-500/20">
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-red-600">Absent</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold text-red-600">{absentCount}</div></CardContent>
+          </Card>
+          <Card className="border-purple-500/20">
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-purple-600">Total Overtime</CardTitle></CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {Math.floor(attendance.reduce((acc, a) => acc + (a.totals?.overtimeSeconds || 0), 0) / 3600)}h {Math.floor((attendance.reduce((acc, a) => acc + (a.totals?.overtimeSeconds || 0), 0) % 3600) / 60)}m
+              </div>
+            </CardContent>
           </Card>
         </div>
 
@@ -300,16 +315,18 @@ export default function HRAttendanceManagement() {
                     <TableRow>
                       <TableHead>Employee</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead>Shift</TableHead>
                       <TableHead>Clock In</TableHead>
                       <TableHead>Clock Out</TableHead>
                       <TableHead>Work Hours</TableHead>
                       <TableHead>Break Hours</TableHead>
+                      <TableHead>Overtime</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mergedRows.map((row, idx) => {
+                    {mergedRows.map((row) => {
                       if (row.kind === 'absent') {
                         return (
                           <TableRow key={`absent_${row.userId}_${row.date}`} className="bg-red-500/5 hover:bg-red-500/10">
@@ -317,6 +334,13 @@ export default function HRAttendanceManagement() {
                               <UserX className="h-3.5 w-3.5" /> {row.userName}
                             </TableCell>
                             <TableCell>{formatDate(row.date)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                                {row.userId
+                                  ? (users.find(u => (u.id || (u as any)._id?.toString()) === row.userId)?.shift_type === 'half_day' ? 'Half Day' : 'Full Day')
+                                  : '-'}
+                              </Badge>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">-</TableCell>
                             <TableCell className="text-muted-foreground">-</TableCell>
                             <TableCell className="text-muted-foreground">-</TableCell>
@@ -326,6 +350,7 @@ export default function HRAttendanceManagement() {
                                 Absent · {row.absenceReason}
                               </Badge>
                             </TableCell>
+                            <TableCell className="text-muted-foreground">-</TableCell>
                             <TableCell className="text-muted-foreground text-xs">—</TableCell>
                           </TableRow>
                         );
@@ -339,6 +364,21 @@ export default function HRAttendanceManagement() {
                         )}>
                           <TableCell className="font-semibold">{getUserName(record.user_id)}</TableCell>
                           <TableCell>{formatDate(record.date)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-[10px] uppercase font-bold',
+                                (record.user_id?.shift_type || users.find(u =>
+                                  (u.id || (u as any)._id?.toString()) === (record.user_id?._id?.toString() || record.user_id?.toString() || record.user_id)
+                                )?.shift_type) === 'half_day' && 'bg-blue-50 text-blue-600 border-blue-100'
+                              )}
+                            >
+                              {(record.user_id?.shift_type || users.find(u =>
+                                (u.id || (u as any)._id?.toString()) === (record.user_id?._id?.toString() || record.user_id?.toString() || record.user_id)
+                              )?.shift_type) === 'half_day' ? 'Half Day' : 'Full Day'}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{formatTime(getClockIn(record))}</TableCell>
                           <TableCell>{formatTime(getClockOut(record))}</TableCell>
                           <TableCell>{formatWorkHours(record)}</TableCell>
@@ -354,6 +394,15 @@ export default function HRAttendanceManagement() {
                                   {formatBreakHours(record)}
                                 </span>
                               </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {formatOvertimeHours(record) !== '-' ? (
+                              <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30 font-bold">
+                                {formatOvertimeHours(record)}
+                              </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}

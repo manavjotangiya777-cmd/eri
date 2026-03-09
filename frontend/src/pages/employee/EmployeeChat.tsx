@@ -3,10 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import EmployeeLayout from '@/components/layouts/EmployeeLayout';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -21,14 +19,15 @@ import {
   getChatMembers,
   getCommonChat,
   uploadFile,
+  deleteMessage,
 } from '@/db/api';
 import type { Chat, Message, Profile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Users, Info, Paperclip, FileText, Download, X } from 'lucide-react';
+import { Send, Users, Info, Paperclip, FileText, Download, X, Trash2 } from 'lucide-react';
 import { API_URL } from '@/config';
 
 interface EmployeeChatProps {
-  Layout?: React.ComponentType<{ children: React.ReactNode }>;
+  Layout?: React.ComponentType<{ children: React.ReactNode; fullWidth?: boolean }>;
 }
 
 export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatProps) {
@@ -37,7 +36,6 @@ export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatPr
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
@@ -53,7 +51,6 @@ export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatPr
 
   const loadInitialData = async () => {
     if (!profile?.id) return;
-    setLoading(true);
     try {
       // Clear orphaned chat notifications
       await markMessagesAsRead('all', profile.id);
@@ -73,11 +70,12 @@ export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatPr
       toast({ title: 'Connection Alert', description: 'Reconnecting to team workspace...', variant: 'destructive' });
       setTimeout(loadInitialData, 3000);
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
 
-  const loadMessages = async (chatId: string, shouldScroll = false) => {
+  const loadMessages = async (chatId: string | undefined, shouldScroll = false) => {
+    if (!chatId || chatId === 'undefined' || chatId === 'null') return;
     try {
       const messagesData = await getChatMessages(chatId);
       setMessages(messagesData);
@@ -112,7 +110,7 @@ export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatPr
 
   const handleSendMessage = async (e: any) => {
     e.preventDefault();
-    const chatId = selectedChat.id || (selectedChat as any)._id;
+    const chatId = selectedChat?.id || (selectedChat as any)?._id;
     if (!chatId) {
       toast({ title: 'Error', description: 'Workspace not connected. Please refresh.' });
       return;
@@ -175,70 +173,84 @@ export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatPr
     return user?.full_name || user?.username || 'Unknown';
   };
 
-  return (
-    <Layout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Workspace Chat</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Connect with everyone in the company</p>
-          </div>
-          <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 px-3 py-1 text-xs font-black tracking-widest uppercase">
-            Live Feed
-          </Badge>
-        </div>
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+    try {
+      await deleteMessage(messageId, profile?.id);
+      if (selectedChat) loadMessages(selectedChat.id.toString(), false);
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to delete message', variant: 'destructive' });
+    }
+  };
 
-        <Card className="flex flex-col overflow-hidden h-[calc(100vh-220px)] border-none shadow-2xl bg-white dark:bg-slate-950/50 backdrop-blur-xl ring-1 ring-slate-100 dark:ring-white/5">
+  return (
+    <Layout fullWidth>
+      <div className="w-full h-full flex flex-col overflow-hidden">
+        <Card className="flex flex-col flex-1 overflow-hidden border-none shadow-none rounded-none bg-white">
           {selectedChat ? (
             <>
-              <CardHeader className="py-4 px-6 border-b border-slate-100 dark:border-white/5 shrink-0 flex flex-row items-center justify-between bg-white/50 dark:bg-transparent">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-inner">
-                    <Users className="h-5 w-5" />
+              <CardHeader className="py-5 px-8 border-b border-slate-100 dark:border-white/5 shrink-0 flex flex-row items-center justify-between bg-white/80 backdrop-blur-md z-10 shadow-sm">
+                <div className="flex items-center gap-5">
+                  <div className="h-14 w-14 rounded-3xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-inner rotate-3 transition-transform hover:rotate-0">
+                    <Users className="h-7 w-7" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-black">{selectedChat.group_name}</CardTitle>
-                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">{groupMembers.length} Employees Connected</p>
+                    <CardTitle className="text-2xl font-black tracking-tighter uppercase">{selectedChat.group_name}</CardTitle>
+                    <div className="flex items-center gap-2.5 mt-0.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <p className="text-[11px] text-emerald-600 font-black uppercase tracking-widest leading-none">{groupMembers.length} EMPLOYEES ONLINE</p>
+                    </div>
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" className="rounded-full hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" onClick={() => setGroupInfoOpen(true)}>
-                  <Info className="h-5 w-5" />
+                <Button size="icon" variant="ghost" className="rounded-full h-12 w-12 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 border border-slate-100 transition-all" onClick={() => setGroupInfoOpen(true)}>
+                  <Info className="h-6 w-6" />
                 </Button>
               </CardHeader>
 
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-slate-50/50 dark:bg-transparent">
-                <ScrollArea className="h-full w-full p-6">
+                <div className="flex-1 w-full overflow-y-auto p-6 scroll-smooth">
                   <div className="space-y-6">
                     {messages.map((message: Message) => {
                       const isOwn = message.sender_id === profile?.id || (message.sender_id as any)?._id === profile?.id;
                       const isImage = message.file_type?.startsWith('image/');
                       return (
-                        <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                          <div className={`max-w-[85%] space-y-1.5`}>
-                            {!isOwn && <p className="text-[10px] font-black ml-4 text-slate-400 uppercase tracking-tighter">{getSenderName(message.sender_id)}</p>}
-                            <div className={`rounded-2xl px-4 py-2.5 shadow-sm border ${isOwn ? 'bg-emerald-600 text-white border-emerald-500 rounded-br-none' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-white/5 rounded-bl-none text-slate-800 dark:text-slate-200'}`}>
-                              {message.content && <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{message.content}</p>}
+                        <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group`}>
+                          <div className={`max-w-[75%] space-y-1`}>
+                            {!isOwn && <p className="text-[10px] font-black ml-4 text-emerald-600 uppercase tracking-widest mb-1">{getSenderName(message.sender_id)}</p>}
+                            <div className={`rounded-[28px] px-6 py-3.5 shadow-sm border ${isOwn ? 'bg-gradient-to-br from-emerald-600 to-emerald-500 text-white border-emerald-500 rounded-br-none shadow-emerald-200' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/5 rounded-bl-none text-slate-800 dark:text-slate-200 shadow-slate-100'}`}>
+                              {message.content && <p className="text-[15px] leading-relaxed font-medium">{message.content}</p>}
                               {message.file_url && (
-                                <div className="mt-2 overflow-hidden rounded-xl">
+                                <div className="mt-3 overflow-hidden rounded-[24px] ring-1 ring-black/5 shadow-lg">
                                   {isImage ? (
                                     <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer">
-                                      <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[350px] object-cover hover:brightness-110 transition-all cursor-zoom-in shadow-lg" />
+                                      <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[450px] object-cover hover:scale-[1.02] transition-transform cursor-zoom-in" />
                                     </a>
                                   ) : (
-                                    <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-emerald-50/50 dark:bg-white/5 rounded-xl hover:bg-emerald-100/50 transition-colors group">
-                                      <div className="h-10 w-10 bg-white dark:bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100/20"><FileText className="h-6 w-6" /></div>
+                                    <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-emerald-50/50 dark:bg-white/5 rounded-[24px] hover:bg-emerald-100/50 transition-all group border border-emerald-100/20">
+                                      <div className="h-14 w-14 bg-white dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-600 shadow-md border border-emerald-200 group-hover:rotate-6 transition-transform"><FileText className="h-8 w-8" /></div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-black truncate">{message.file_name}</p>
-                                        <p className="text-[9px] text-emerald-600/70 font-black tracking-widest uppercase">Click to view</p>
+                                        <p className="text-sm font-black truncate leading-tight">{message.file_name}</p>
+                                        <p className="text-[10px] text-emerald-600/70 font-black tracking-widest uppercase mt-1">Shared Material</p>
                                       </div>
-                                      <Download className="h-4 w-4 opacity-30 group-hover:opacity-100" />
+                                      <Download className="h-5 w-5 opacity-40 group-hover:opacity-100 group-hover:text-emerald-600 transition-all" />
                                     </a>
                                   )}
                                 </div>
                               )}
-                              <p className={`text-[9px] mt-2 text-right opacity-50 font-bold`}>
-                                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </p>
+                              <div className="flex items-center justify-between gap-2 mt-2.5">
+                                {isOwn && (
+                                  <button
+                                    onClick={() => handleDeleteMessage(message.id)}
+                                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
+                                    title="Delete Message"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <p className="text-[9px] opacity-60 font-black tracking-widest uppercase ml-auto">
+                                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -246,44 +258,47 @@ export default function EmployeeChat({ Layout = EmployeeLayout }: EmployeeChatPr
                     })}
                     <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                </div>
 
-                <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-white dark:bg-slate-950/80 backdrop-blur-md shrink-0">
+                <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-white/50 backdrop-blur-xl shrink-0 relative">
                   {selectedFile && (
-                    <div className="mb-3 p-2 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-800 rounded-xl flex items-center justify-between gap-3 animate-in fade-in zoom-in-95">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-10 w-10 bg-white dark:bg-emerald-500/20 rounded-lg flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                    <div className="absolute bottom-full left-4 right-4 mb-4 p-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-2xl border border-emerald-200/30 dark:border-white/10 rounded-[28px] flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 zoom-in-95 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-20">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="h-14 w-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-inner border border-emerald-500/5">
                           {selectedFile.type.startsWith('image/') ? (
                             <img src={selectedFile.url.startsWith('http') ? selectedFile.url : `${API_URL.replace('/api', '')}${selectedFile.url}`} className="h-full w-full object-cover" />
                           ) : (
-                            <FileText className="h-5 w-5 text-emerald-600" />
+                            <FileText className="h-8 w-8 text-emerald-600" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black truncate">{selectedFile.name}</p>
-                          <span className="text-[9px] bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-600 font-black uppercase tracking-widest">{selectedFile.type.split('/')[1]}</span>
+                          <p className="text-sm font-black truncate leading-tight text-slate-900 dark:text-emerald-50">{selectedFile.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">{selectedFile.type.split('/')[1]}</p>
+                          </div>
                         </div>
                       </div>
-                      <button className="p-2 hover:bg-destructive/10 text-destructive rounded-full" onClick={() => setSelectedFile(null)}>
-                        <X className="h-4 w-4" />
+                      <button type="button" className="h-10 w-10 flex items-center justify-center hover:bg-destructive/10 text-destructive rounded-full transition-all hover:rotate-90 hover:scale-110" onClick={() => setSelectedFile(null)}>
+                        <X className="h-5 w-5" />
                       </button>
                     </div>
                   )}
-                  <form onSubmit={handleSendMessage} className="flex gap-3 items-end bg-slate-100 dark:bg-white/5 p-2 rounded-[24px] focus-within:ring-2 ring-emerald-500/20 transition-all">
+                  <form onSubmit={handleSendMessage} className="flex gap-3 items-center bg-slate-100/80 dark:bg-white/5 p-2 rounded-[32px] ring-1 ring-black/5 focus-within:ring-2 ring-emerald-500/20 transition-all flex-nowrap overflow-hidden shadow-inner">
                     <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                    <Button type="button" size="icon" variant="ghost" className="h-10 w-10 shrink-0 rounded-full hover:bg-white dark:hover:bg-white/10" onClick={() => fileInputRef.current?.click()} disabled={uploading || sending}>
-                      <Paperclip className={`h-5 w-5 text-slate-500 ${uploading ? 'animate-spin text-emerald-500' : ''}`} />
+                    <Button type="button" size="icon" variant="ghost" className="h-12 w-12 shrink-0 rounded-full hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm bg-white/50 dark:bg-transparent" onClick={() => fileInputRef.current?.click()} disabled={uploading || sending}>
+                      <Paperclip className={`h-6 w-6 text-slate-500 ${uploading ? 'animate-spin text-emerald-500' : ''}`} />
                     </Button>
-                    <Textarea
+                    <textarea
                       value={newMessage}
                       onChange={e => setNewMessage(e.target.value)}
-                      placeholder="Type your message..."
-                      className="flex-1 min-h-[40px] max-h-[160px] resize-none border-none bg-transparent focus-visible:ring-0 px-2 py-2 text-sm font-medium"
+                      placeholder="Type your message here..."
+                      className="flex-1 bg-transparent border-none focus:ring-0 px-3 py-3 text-[15px] font-medium resize-none h-12 max-h-40 dark:text-white scrollbar-hide"
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); } }}
                       disabled={sending}
                     />
-                    <Button type="submit" size="icon" className="h-10 w-10 shrink-0 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20" disabled={(!newMessage.trim() && !selectedFile) || sending || uploading}>
-                      <Send className="h-5 w-5" />
+                    <Button type="submit" size="icon" className="h-12 w-12 shrink-0 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 text-white hover:scale-105 transition-all" disabled={(!newMessage.trim() && !selectedFile) || sending || uploading}>
+                      <Send className="h-6 w-6" />
                     </Button>
                   </form>
                 </div>

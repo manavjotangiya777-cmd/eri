@@ -348,7 +348,9 @@ export default function EmployeeTasks({ Layout = EmployeeLayout }: EmployeeTasks
                           <SelectContent>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="review">Review</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="on_hold">On Hold</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

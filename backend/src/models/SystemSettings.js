@@ -16,6 +16,10 @@ const SystemSettingsSchema = new mongoose.Schema({
     half_day_end_time: { type: String, default: '14:00' },
     half_day_late_threshold: { type: Number, default: 15 },
     half_day_work_hours: { type: Number, default: 4 },
+    // Overtime
+    overtime_enabled: { type: Boolean, default: true },
+    overtime_threshold_hours: { type: Number, default: 8 },      // after X hours -> counts as overtime
+    half_day_overtime_threshold_hours: { type: Number, default: 4 }, // half-day variant
     // Saturday working day rule
     saturday_rule: {
         type: String,

@@ -16,6 +16,19 @@ module.exports = {
                 NODE_ENV: 'production',
                 PORT: 5001
             }
+        },
+        {
+            name: 'it-crm-frontend',
+            script: 'npm',
+            args: 'run dev',
+            cwd: './frontend',
+            instances: 1,
+            autorestart: true,
+            watch: false,
+            env: {
+                NODE_ENV: 'development',
+                PORT: 3000
+            }
         }
     ]
 };

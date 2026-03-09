@@ -282,36 +282,33 @@ export default function UserManagement() {
             return;
         }
 
+        if (newUser.role === 'client' && !newUser.client_id) {
+            toast({
+                title: 'Error',
+                description: 'Please select a company for the client user',
+                variant: 'destructive',
+            });
+            return;
+        }
+
         setCreating(true);
         try {
             const data = await adminCreateUser({
                 username: newUser.username,
                 password: newUser.password,
-                email: newUser.email || undefined,
-                phone: newUser.phone || undefined,
+                email: newUser.email || null,
+                phone: newUser.phone || null,
+                full_name: newUser.full_name || null,
                 role: newUser.role,
+                department: (newUser.role !== 'client' ? newUser.department : null) || null,
+                designation_id: (newUser.role !== 'client' ? newUser.designation_id : null) || null,
+                client_id: (newUser.role === 'client' ? newUser.client_id : null) || null,
+                shift_type: newUser.shift_type,
+                date_of_birth: newUser.date_of_birth || null,
             });
 
             if (!data || !data.success) {
                 throw new Error((data as any)?.error || 'Failed to create user');
-            }
-
-            if (data?.user?.id) {
-                // Wait a moment for the trigger to complete
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Update the profile with the correct role and other details
-                await updateProfile(data.user.id, {
-                    full_name: newUser.full_name || null,
-                    email: newUser.email || null,
-                    phone: newUser.phone || null,
-                    role: newUser.role,
-                    department: newUser.department || null,
-                    designation_id: newUser.designation_id || null,
-                    client_id: newUser.client_id || null,
-                    shift_type: newUser.shift_type,
-                    date_of_birth: newUser.date_of_birth || null,
-                });
             }
 
             toast({
@@ -625,22 +622,27 @@ export default function UserManagement() {
 
                                 {newUser.role === 'client' && (
                                     <div className="space-y-2">
-                                        <Label htmlFor="new_client" className="text-sm font-semibold">Company *</Label>
+                                        <Label htmlFor="new_client" className="text-sm font-semibold text-blue-600">Associated Client Company *</Label>
                                         <Select
-                                            value={newUser.client_id}
-                                            onValueChange={(value: string) => setNewUser({ ...newUser, client_id: value })}
+                                            value={newUser.client_id || undefined}
+                                            onValueChange={(value: string) => {
+                                                console.log('Selected client_id:', value);
+                                                setNewUser({ ...newUser, client_id: value });
+                                            }}
                                         >
-                                            <SelectTrigger id="new_client" className="h-11 shadow-sm">
-                                                <SelectValue placeholder="Select company" />
+                                            <SelectTrigger id="new_client" className="h-11 shadow-sm border-blue-200 bg-blue-50/30">
+                                                <SelectValue placeholder="Select client company" />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                {clients.length === 0 && <div className="p-2 text-xs text-muted-foreground">No clients found</div>}
                                                 {clients.map((client: Client) => (
-                                                    <SelectItem key={client.id} value={client.id}>
+                                                    <SelectItem key={client.id} value={client.id || (client as any)._id}>
                                                         {client.company_name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        <p className="text-[10px] text-blue-500 font-medium">This links the user to their specific company portal</p>
                                     </div>
                                 )}
                                 {newUser.role !== 'client' && (

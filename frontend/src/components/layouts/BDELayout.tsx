@@ -29,9 +29,11 @@ import {
   Menu,
   LogOut,
   User,
+  Bell,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
+import { useFollowUpBadge } from '@/hooks/use-followup-badge';
 import { cn } from '@/lib/utils';
 
 interface BDELayoutProps {
@@ -44,6 +46,7 @@ const bdeNavItems = [
   { icon: Receipt, label: 'Invoices', path: '/bde/invoices' },
   { icon: Headset, label: 'Client Support', path: '/bde/client-support' },
   { icon: CheckSquare, label: 'My Tasks', path: '/bde/tasks' },
+  { icon: Bell, label: 'Follow-Ups', path: '/bde/followups' },
   { icon: FileText, label: 'Attendance Report', path: '/bde/attendance-report' },
   { icon: MessageSquare, label: 'Chat', path: '/bde/chat' },
   { icon: Sparkles, label: 'AI Assistant', path: '/bde/ai-assistant' },
@@ -67,15 +70,16 @@ export default function BDELayout({ children }: BDELayoutProps) {
 
   const NavContent = () => {
     const unreadChatCount = useChatUnread();
-    
+    const followUpBadge = useFollowUpBadge();
+
     return (
       <div className="flex flex-col h-full">
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             {settings?.company_logo ? (
-              <img 
-                src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`} 
-                alt="Logo" 
+              <img
+                src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`}
+                alt="Logo"
                 className="h-8 w-auto object-contain max-w-[150px] mt-2"
               />
             ) : (
@@ -94,6 +98,7 @@ export default function BDELayout({ children }: BDELayoutProps) {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             const isChat = item.label === 'Chat';
+            const isFollowUp = item.label === 'Follow-Ups';
 
             return (
               <Link
@@ -112,6 +117,11 @@ export default function BDELayout({ children }: BDELayoutProps) {
                 {isChat && unreadChatCount > 0 && (
                   <Badge variant="destructive" className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                     {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                  </Badge>
+                )}
+                {isFollowUp && followUpBadge > 0 && (
+                  <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full bg-amber-500 hover:bg-amber-500">
+                    {followUpBadge > 9 ? '9+' : followUpBadge}
                   </Badge>
                 )}
               </Link>

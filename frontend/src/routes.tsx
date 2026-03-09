@@ -9,6 +9,7 @@ import UserManagement from './pages/admin/UserManagement';
 import DepartmentManagement from './pages/admin/DepartmentManagement';
 import ClientManagement from './pages/admin/ClientManagement';
 import TaskManagement from './pages/admin/TaskManagement';
+import FollowUpManagement from './pages/admin/FollowUpManagement';
 import InvoiceManagement from './pages/admin/InvoiceManagement';
 import AttendanceOverview from './pages/admin/AttendanceOverview';
 import SystemSettings from './pages/admin/SystemSettings';
@@ -90,6 +91,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['admin']}><TaskManagement /></ProtectedRoute>,
   },
   {
+    name: 'Follow-Up Management',
+    path: '/admin/followups',
+    element: <ProtectedRoute allowedRoles={['admin']}><FollowUpManagement /></ProtectedRoute>,
+  },
+  {
     name: 'Invoice Management',
     path: '/admin/invoices',
     element: <ProtectedRoute allowedRoles={['admin']}><InvoiceManagement /></ProtectedRoute>,
@@ -158,6 +164,11 @@ const routes: RouteConfig[] = [
     name: 'Task Management',
     path: '/hr/tasks',
     element: <ProtectedRoute allowedRoles={['hr']}><HRTaskManagement /></ProtectedRoute>,
+  },
+  {
+    name: 'Follow-Up Management',
+    path: '/hr/followups',
+    element: <ProtectedRoute allowedRoles={['hr']}><FollowUpManagement Layout={HRLayout} /></ProtectedRoute>,
   },
   {
     name: 'Leave Management',
@@ -289,6 +300,11 @@ const routes: RouteConfig[] = [
     name: 'My Tasks',
     path: '/bde/tasks',
     element: <ProtectedRoute allowedRoles={['bde']}><EmployeeTasks Layout={BDELayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'Follow-Up Management',
+    path: '/bde/followups',
+    element: <ProtectedRoute allowedRoles={['bde']}><FollowUpManagement Layout={BDELayout} /></ProtectedRoute>,
   },
   {
     name: 'Attendance Report',

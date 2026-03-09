@@ -31,10 +31,12 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
+import { useFollowUpBadge } from '@/hooks/use-followup-badge';
 import { cn } from '@/lib/utils';
 
 interface EmployeeLayoutProps {
   children: ReactNode;
+  fullWidth?: boolean;
 }
 
 const employeeNavItems = [
@@ -47,7 +49,7 @@ const employeeNavItems = [
   { icon: Sparkles, label: 'AI Assistant', path: '/employee/ai-assistant' },
 ];
 
-export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
+export default function EmployeeLayout({ children, fullWidth = false }: EmployeeLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
@@ -65,6 +67,7 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
 
   const NavContent = () => {
     const unreadChatCount = useChatUnread();
+    const followUpBadge = useFollowUpBadge();
 
     return (
       <div className="flex flex-col h-full">
@@ -92,6 +95,7 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             const isChat = item.label === 'Chat';
+            const isInfo = item.label === 'Information';
 
             return (
               <Link
@@ -110,6 +114,11 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
                 {isChat && unreadChatCount > 0 && (
                   <Badge variant="destructive" className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                     {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                  </Badge>
+                )}
+                {isInfo && followUpBadge > 0 && (
+                  <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full bg-amber-500 hover:bg-amber-500">
+                    {followUpBadge > 9 ? '9+' : followUpBadge}
                   </Badge>
                 )}
               </Link>
@@ -181,8 +190,8 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
           </DropdownMenu>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-slate-50/10">
-          <div className="w-full space-y-6">
+        <main className={cn("flex-1 bg-slate-50/10 min-h-0 flex flex-col", fullWidth ? "p-0" : "p-4 md:p-6 lg:p-8 overflow-y-auto")}>
+          <div className={cn("w-full flex-1 min-h-0 flex flex-col", !fullWidth && "space-y-6")}>
             {children}
           </div>
         </main>
