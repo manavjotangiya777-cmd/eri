@@ -23,6 +23,9 @@ import AdminLayout from './components/layouts/AdminLayout';
 import HRLayout from './components/layouts/HRLayout';
 import BDELayout from './components/layouts/BDELayout';
 import AiAssistantPage from './pages/AiAssistantPage';
+import SalaryManagement from './pages/admin/SalaryManagement';
+import CashFlowPage from './pages/admin/CashFlow';
+import MySalary from './pages/employee/MySalary';
 
 import HRDashboard from './pages/hr/HRDashboard';
 import HREmployeeManagement from './pages/hr/HREmployeeManagement';
@@ -142,6 +145,16 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['admin']}><AbsenceRecordPage Layout={AdminLayout} /></ProtectedRoute>,
   },
   {
+    name: 'Salary Management',
+    path: '/admin/salaries',
+    element: <ProtectedRoute allowedRoles={['admin']}><SalaryManagement Layout={AdminLayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'Cash Flow',
+    path: '/admin/cashflow',
+    element: <ProtectedRoute allowedRoles={['admin']}><CashFlowPage /></ProtectedRoute>,
+  },
+  {
     name: 'Warning Management',
     path: '/admin/warnings',
     element: <ProtectedRoute allowedRoles={['admin']}><WarningManagement Layout={AdminLayout} /></ProtectedRoute>,
@@ -212,6 +225,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['hr']}><WarningManagement Layout={HRLayout} /></ProtectedRoute>,
   },
   {
+    name: 'Salary Management',
+    path: '/hr/salaries',
+    element: <ProtectedRoute allowedRoles={['hr']}><SalaryManagement Layout={HRLayout} /></ProtectedRoute>,
+  },
+  {
     path: '/hr/profile',
     element: <ProtectedRoute allowedRoles={['hr']}><ProfilePage /></ProtectedRoute>,
   },
@@ -241,6 +259,11 @@ const routes: RouteConfig[] = [
   {
     path: '/employee/chat',
     element: <ProtectedRoute allowedRoles={['employee']}><EmployeeChat /></ProtectedRoute>,
+  },
+  {
+    name: 'My Salaries',
+    path: '/employee/salaries',
+    element: <ProtectedRoute allowedRoles={['employee']}><MySalary /></ProtectedRoute>,
   },
   {
     name: 'AI Assistant',
@@ -326,6 +349,11 @@ const routes: RouteConfig[] = [
     name: 'Chat',
     path: '/bde/chat',
     element: <ProtectedRoute allowedRoles={['bde']}><EmployeeChat Layout={BDELayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'My Salaries',
+    path: '/bde/salaries',
+    element: <ProtectedRoute allowedRoles={['bde']}><MySalary /></ProtectedRoute>,
   },
   {
     name: 'AI Assistant',

@@ -31,6 +31,7 @@ import {
   User,
   Bell,
   Info,
+  IndianRupee,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -51,6 +52,7 @@ const bdeNavItems = [
   { icon: FileText, label: 'Attendance Report', path: '/bde/attendance-report' },
   { icon: Info, label: 'Information', path: '/bde/info' },
   { icon: MessageSquare, label: 'Chat', path: '/bde/chat' },
+  { icon: IndianRupee, label: 'My Salary', path: '/bde/salaries' },
   { icon: Sparkles, label: 'AI Assistant', path: '/bde/ai-assistant' },
 ];
 

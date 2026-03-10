@@ -25,6 +25,7 @@ const ProfileSchema = new mongoose.Schema({
         enum: ['full_day', 'half_day'],
         default: 'full_day'
     },
+    salary_per_month: { type: Number, default: 0 },
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
     toJSON: { virtuals: true },

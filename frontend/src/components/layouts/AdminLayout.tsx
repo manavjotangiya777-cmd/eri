@@ -35,6 +35,8 @@ import {
   Calendar,
   Bell,
   AlertTriangle,
+  IndianRupee,
+  Wallet,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -61,6 +63,8 @@ const adminNavItems = [
   { icon: Users, label: 'Client Support', path: '/admin/client-support' },
   { icon: UserX, label: 'Absence Records', path: '/admin/absences' },
   { icon: AlertTriangle, label: 'Warnings', path: '/admin/warnings' },
+  { icon: IndianRupee, label: 'Payroll', path: '/admin/salaries' },
+  { icon: Wallet, label: 'Cash Flow', path: '/admin/cashflow' },
   { icon: Sparkles, label: 'AI Assistant', path: '/admin/ai-assistant' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];

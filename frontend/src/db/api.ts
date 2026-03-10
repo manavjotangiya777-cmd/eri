@@ -23,6 +23,9 @@ import type {
   Notification,
   FollowUp,
   Warning,
+  Salary,
+  CashFlow,
+  CashFlowDashboardStats,
 } from '@/types';
 
 const getLocalDateString = (date: Date = new Date()) => {
@@ -997,6 +1000,28 @@ export const getAbsences = async (filters: { from?: string; to?: string; user_id
     return await res.json();
   } catch { return []; }
 };
+// ── Salary API ─────────────────────────────────────────────────────────────
+export const getAllSalaries = async (filters: { user_id?: string; month?: number; year?: number; role?: string } = {}): Promise<Salary[]> => {
+  const params = new URLSearchParams();
+  if (filters.user_id) params.append('user_id', filters.user_id);
+  if (filters.month) params.append('month', filters.month.toString());
+  if (filters.year) params.append('year', filters.year.toString());
+  if (filters.role) params.append('role', filters.role);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return await fetcher(`salaries${query}`, {}, 'salaries');
+};
+
+export const createSalary = async (data: Partial<Salary>): Promise<Salary> => {
+  return await fetcher('salaries', { method: 'POST', body: JSON.stringify(data) }, 'salaries');
+};
+
+export const updateSalary = async (id: string, data: Partial<Salary>): Promise<Salary> => {
+  return await fetcher(`salaries/${id}`, { method: 'PATCH', body: JSON.stringify(data) }, 'salaries');
+};
+
+export const deleteSalary = async (id: string): Promise<{ success: boolean }> => {
+  return await fetcher(`salaries/${id}`, { method: 'DELETE' }, 'salaries');
+};
 
 export const generateAbsences = async (from: string, to: string): Promise<{ created: number; skipped: number; errors: string[] }> => {
   const res = await fetch(`${API_URL}/absences/generate`, {
@@ -1076,4 +1101,39 @@ export const updateWarning = async (id: string, payload: Partial<Warning>): Prom
 
 export const deleteWarning = async (id: string): Promise<void> => {
   await fetcher(`warnings/${id}`, { method: 'DELETE' }, 'warnings');
+};
+
+// --- Cash Flow APIs ---
+export const getAllCashFlow = async (filters: { type?: string; startDate?: string; endDate?: string; category?: string } = {}): Promise<CashFlow[]> => {
+  let url = 'cashflow';
+  const params = new URLSearchParams();
+  if (filters.type) params.append('type', filters.type);
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.category) params.append('category', filters.category);
+
+  if (params.toString()) url += `?${params.toString()}`;
+  return await fetcher(url) as CashFlow[];
+};
+
+export const getCashFlowDashboard = async (): Promise<CashFlowDashboardStats> => {
+  return await fetcher('cashflow/dashboard') as CashFlowDashboardStats;
+};
+
+export const createCashFlow = async (payload: Partial<CashFlow>): Promise<CashFlow> => {
+  return await fetcher('cashflow', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateCashFlow = async (id: string, payload: Partial<CashFlow>): Promise<CashFlow> => {
+  return await fetcher(`cashflow/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteCashFlow = async (id: string): Promise<void> => {
+  await fetcher(`cashflow/${id}`, { method: 'DELETE' });
 };

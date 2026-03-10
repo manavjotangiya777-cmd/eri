@@ -30,6 +30,8 @@ const AllowedNetwork = require('../models/AllowedNetwork');
 const Notification = require('../models/Notification');
 const FollowUp = require('../models/FollowUp');
 const Warning = require('../models/Warning');
+const Salary = require('../models/Salary');
+const CashFlow = require('../models/CashFlow');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Request Logging Middleware
@@ -2181,6 +2183,446 @@ router.post('/warnings', async (req, res) => {
 router.delete('/warnings/:id', async (req, res) => {
     try {
         await Warning.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Salary Routes ---
+router.get('/salaries', async (req, res) => {
+    try {
+        const { user_id, month, year, role } = req.query;
+        let query = {};
+
+        // If employee, restrict to their own records
+        if (role === 'employee' && user_id) {
+            query.user_id = toObjectId(user_id);
+        } else if (user_id) {
+            query.user_id = toObjectId(user_id);
+        }
+
+        if (month) query.month = parseInt(month);
+        if (year) query.year = parseInt(year);
+
+        const salaries = await Salary.find(query)
+            .populate('user', 'full_name username role salary_per_month avatar_url department designation_id')
+            .populate({
+                path: 'user',
+                populate: { path: 'designation', select: 'name' }
+            })
+            .sort({ year: -1, month: -1 });
+
+        res.json(salaries);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/salaries', async (req, res) => {
+    try {
+        const { user_id, month, year, basic_salary, total_working_days, leave_days, hra, allowances, incentives, pf, other_deductions, bonus, late_entries, created_by } = req.body;
+
+        const uid = toObjectId(user_id);
+        if (!uid) return res.status(400).json({ error: 'Invalid User ID' });
+
+        // Duplicate Check
+        const existing = await Salary.findOne({ user_id: uid, month: Number(month), year: Number(year) });
+        if (existing) {
+            return res.status(400).json({ error: 'Salary already generated for this employee for this month.' });
+        }
+
+        // Calculation Engine
+        const basic = Number(basic_salary) || 0;
+        const workingDays = Number(total_working_days) || 26;
+        const lDays = Number(leave_days) || 0;
+        const lEntries = Number(late_entries) || 0;
+
+        const perDay = basic / (workingDays || 26);
+        const leaveDeduction = lDays * perDay;
+        const latePenaltyDays = Math.floor(lEntries / 3) * 0.5;
+        const latePenalty = latePenaltyDays * perDay;
+
+        const gross = basic + (Number(hra) || 0) + (Number(allowances) || 0) + (Number(bonus) || 0) + (Number(incentives) || 0);
+        const totalDed = leaveDeduction + latePenalty + (Number(pf) || 0) + (Number(other_deductions) || 0);
+        const net = gross - totalDed;
+
+        const salary = new Salary({
+            ...req.body,
+            user_id: uid,
+            month: Number(month),
+            year: Number(year),
+            basic_salary: basic,
+            leave_deductions: Math.round(leaveDeduction),
+            late_penalty: Math.round(latePenalty),
+            gross_salary: Math.round(gross),
+            total_deductions: Math.round(totalDed),
+            net_salary: Math.round(net),
+            created_by: toObjectId(created_by)
+        });
+
+        await salary.save();
+        res.status(201).json(salary);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.patch('/salaries/:id', async (req, res) => {
+    try {
+        const current = await Salary.findById(req.params.id);
+        if (!current) return res.status(404).json({ error: 'Record not found' });
+
+        const { basic_salary, total_working_days, leave_days, late_entries, hra, allowances, bonus, incentives, pf, other_deductions } = req.body;
+
+        const basic = basic_salary !== undefined ? Number(basic_salary) : current.basic_salary;
+        const workingDays = total_working_days !== undefined ? Number(total_working_days) : current.total_working_days;
+        const lDays = leave_days !== undefined ? Number(leave_days) : current.leave_days;
+        const lEntries = late_entries !== undefined ? Number(late_entries) : current.late_entries;
+
+        // Recalculate
+        const perDay = basic / (workingDays || 1);
+        const leaveDeduction = lDays * perDay;
+        const latePenaltyDays = Math.floor(lEntries / 3) * 0.5;
+        const latePenalty = latePenaltyDays * perDay;
+
+        const gross = basic +
+            (hra !== undefined ? Number(hra) : current.hra) +
+            (allowances !== undefined ? Number(allowances) : current.allowances) +
+            (bonus !== undefined ? Number(bonus) : current.bonus) +
+            (incentives !== undefined ? Number(incentives) : current.incentives);
+
+        const totalDed = leaveDeduction + latePenalty +
+            (pf !== undefined ? Number(pf) : current.pf) +
+            (other_deductions !== undefined ? Number(other_deductions) : current.other_deductions);
+
+        const net = gross - totalDed;
+
+        const updates = {
+            ...req.body,
+            basic_salary: basic,
+            total_working_days: workingDays,
+            leave_days: lDays,
+            late_entries: lEntries,
+            leave_deductions: Math.round(leaveDeduction),
+            late_penalty: Math.round(latePenalty),
+            gross_salary: Math.round(gross),
+            total_deductions: Math.round(totalDed),
+            net_salary: Math.round(net)
+        };
+
+        const salary = await Salary.findByIdAndUpdate(req.params.id, updates, { new: true });
+        res.json(salary);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/salaries/:id', async (req, res) => {
+    try {
+        await Salary.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Download Payslip (Similar to Invoice Download)
+router.get('/salaries/download/:id', async (req, res) => {
+    try {
+        const salary = await Salary.findById(req.params.id)
+            .populate('user_id')
+            .populate({
+                path: 'user_id',
+                populate: { path: 'designation' }
+            });
+
+        if (!salary) return res.status(404).json({ error: 'Salary record not found' });
+
+        const settings = await SystemSettings.findOne() || {};
+        const logoUrl = settings.company_logo ? `https://eri.errorinfotech.in${settings.company_logo}` : 'https://eri.errorinfotech.in/logo.png';
+        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const period = `${monthNames[salary.month]} ${salary.year}`;
+
+        const data = {
+            company_name: settings.company_name || 'Error Infotech',
+            company_logo: logoUrl,
+            company_address: settings.company_address || 'Surat, Gujarat, India',
+            employee_name: salary.user_id?.full_name || salary.user_id?.username || 'Employee',
+            employee_id: salary.user_id?.username || '-',
+            designation: salary.user_id?.designation?.name || 'Staff',
+            month_year: period,
+
+            // Earnings
+            basic: salary.basic_salary.toLocaleString('en-IN'),
+            hra: (salary.hra || 0).toLocaleString('en-IN'),
+            allowances: (salary.allowances || 0).toLocaleString('en-IN'),
+            bonus: (salary.bonus || 0).toLocaleString('en-IN'),
+            incentives: (salary.incentives || 0).toLocaleString('en-IN'),
+            gross_total: salary.gross_salary.toLocaleString('en-IN'),
+
+            // Deductions
+            leave_ded_amount: (salary.leave_deductions || 0).toLocaleString('en-IN'),
+            late_penalty_amount: (salary.late_penalty || 0).toLocaleString('en-IN'),
+            pf: (salary.pf || 0).toLocaleString('en-IN'),
+            other_deductions: (salary.other_deductions || 0).toLocaleString('en-IN'),
+            total_ded_amount: salary.total_deductions.toLocaleString('en-IN'),
+
+            net_total: salary.net_salary.toLocaleString('en-IN'),
+            payment_date: salary.payment_date ? new Date(salary.payment_date).toLocaleDateString('en-GB') : '-',
+            status: salary.status.toUpperCase()
+        };
+
+        const template = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Payslip - ${data.employee_name}</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+            <style>
+                body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #333; -webkit-print-color-adjust: exact; }
+                .payslip-page { width: 210mm; min-height: 297mm; margin: auto; padding: 15mm; box-sizing: border-box; position: relative; }
+                
+                .header-logo { margin-bottom: 25px; text-align: left; }
+                .header-logo img { height: 75px; width: auto; }
+                
+                .watermark { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 100px; opacity: 0.04; font-weight: 800; z-index: 0; pointer-events: none; width: 100%; text-align: center; color: #000; text-transform: uppercase; }
+                
+                .main-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; position: relative; z-index: 1; }
+                .main-table th, .main-table td { border: 1px solid #000; padding: 10px 12px; font-size: 13px; text-align: left; }
+                
+                .bg-light { background-color: #f8fafc; }
+                .font-bold { font-weight: 700; }
+                .text-center { text-align: center !important; }
+                .text-right { text-align: right !important; }
+                
+                .section-header { background: #f1f5f9; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; height: 35px; }
+                
+                .earnings-deductions-container { display: flex; width: 100%; border-left: 1.5px solid #000; border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; }
+                .half-table { width: 50%; border-collapse: collapse; }
+                .half-table th, .half-table td { border: 1px solid #000; padding: 10px; font-size: 13px; }
+                .half-table th { background: #f8fafc; text-align: center; font-weight: 700; }
+                
+                .summary-table { width: 100%; border-collapse: collapse; border-left: 1.5px solid #000; border-right: 1.5px solid #000; border-bottom: 1.5px solid #000; }
+                .summary-table td { border: 1px solid #000; padding: 15px; font-size: 14px; }
+                
+                .net-salary-row { background: #475569; color: #fff; font-weight: 800; }
+                .net-salary-row td { border-color: #475569; }
+
+                .footer-notice { margin-top: 40px; text-align: center; font-size: 11px; color: #64748b; }
+            </style>
+        </head>
+        <body>
+            <div class="payslip-page" id="payslip-content">
+                <div class="watermark">${data.company_name}</div>
+                
+                <div class="header-logo">
+                    <img src="${data.company_logo}" alt="Logo">
+                </div>
+
+                <table class="main-table">
+                    <tr>
+                        <td class="font-bold bg-light" width="20%">Employee Name</td>
+                        <td width="30%">${data.employee_name}</td>
+                        <td class="font-bold bg-light" width="20%">Employee ID</td>
+                        <td width="30%">${data.employee_id}</td>
+                    </tr>
+                    <tr>
+                        <td class="font-bold bg-light">Designation</td>
+                        <td>${data.designation}</td>
+                        <td class="font-bold bg-light">Month & Year</td>
+                        <td>${data.month_year}</td>
+                    </tr>
+                    <tr>
+                        <td class="font-bold bg-light">Payment Method</td>
+                        <td>Bank Transfer</td>
+                        <td class="font-bold bg-light">Status</td>
+                        <td class="font-bold" style="color: ${data.status === 'PAID' ? '#059669' : '#dc2626'}">${data.status}</td>
+                    </tr>
+                </table>
+
+                <div style="height: 20px;"></div>
+
+                <div style="display: flex; border: 1.5px solid #000; border-bottom: none;">
+                    <div style="width: 50%; border-right: 1.5px solid #000; font-weight: 800; padding: 10px; background: #475569; color: #fff; text-align: center;">EARNINGS</div>
+                    <div style="width: 50%; font-weight: 800; padding: 10px; background: #475569; color: #fff; text-align: center;">DEDUCTIONS</div>
+                </div>
+
+                <div style="display: flex;">
+                    <!-- Earnings Column -->
+                    <table class="half-table" style="border-left: 1.5px solid #000;">
+                        <tr>
+                            <td width="70%">Basic Salary</td>
+                            <td width="30%" class="text-right">₹ ${data.basic}</td>
+                        </tr>
+                        <tr>
+                            <td>HRA</td>
+                            <td class="text-right">₹ ${data.hra}</td>
+                        </tr>
+                        <tr>
+                            <td>Allowances</td>
+                            <td class="text-right">₹ ${data.allowances}</td>
+                        </tr>
+                        <tr>
+                            <td>Bonus</td>
+                            <td class="text-right">₹ ${data.bonus}</td>
+                        </tr>
+                        <tr>
+                            <td>Incentives</td>
+                            <td class="text-right">₹ ${data.incentives}</td>
+                        </tr>
+                        <tr class="bg-light font-bold">
+                            <td>Gross Earnings</td>
+                            <td class="text-right">₹ ${data.gross_total}</td>
+                        </tr>
+                    </table>
+
+                    <!-- Deductions Column -->
+                    <table class="half-table" style="border-right: 1.5px solid #000; border-left: none;">
+                        <tr>
+                            <td width="70%">Leave Deduction (LWP)</td>
+                            <td width="30%" class="text-right">₹ ${data.leave_ded_amount}</td>
+                        </tr>
+                        <tr>
+                            <td>Late Penalty</td>
+                            <td class="text-right">₹ ${data.late_penalty_amount}</td>
+                        </tr>
+                        <tr>
+                            <td>Provident Fund (PF)</td>
+                            <td class="text-right">₹ ${data.pf}</td>
+                        </tr>
+                        <tr>
+                            <td>Professional Tax</td>
+                            <td class="text-right">₹ 0.00</td>
+                        </tr>
+                        <tr>
+                            <td>Other Deductions</td>
+                            <td class="text-right">₹ ${data.other_deductions}</td>
+                        </tr>
+                        <tr class="bg-light font-bold">
+                            <td>Total Deductions</td>
+                            <td class="text-right">₹ ${data.total_ded_amount}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <table class="summary-table">
+                    <tr class="net-salary-row">
+                        <td width="70%" class="text-right">NET PAYABLE SALARY</td>
+                        <td width="30%" class="text-right" style="font-size: 18px;">₹ ${data.net_total}</td>
+                    </tr>
+                </table>
+
+                <div class="footer-notice">
+                    <p>This is a computer-generated document and does not require a physical signature.</p>
+                    <p>© ${new Date().getFullYear()} ${data.company_name} | All Rights Reserved</p>
+                </div>
+            </div>
+
+            <script>
+                window.onload = function() {
+                    const element = document.getElementById('payslip-content');
+                    const opt = {
+                        margin: 0,
+                        filename: 'Payslip_${data.employee_id}_${data.month_year.replace(" ", "_")}.pdf',
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 3, useCORS: true, letterRendering: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+                    html2pdf().set(opt).from(element).save();
+                };
+            </script>
+        </body>
+        </html>`;
+
+        res.setHeader('Content-Type', 'text/html');
+        // Set content disposition to inline so browser can render and trigger the PDF script
+        res.setHeader('Content-Disposition', 'inline; filename=payslip.html');
+        res.send(template);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Cash Flow Routes ---
+router.get('/cashflow', async (req, res) => {
+    try {
+        const { type, startDate, endDate, category } = req.query;
+        let query = {};
+        if (type) query.type = type;
+        if (category) query.category = category;
+        if (startDate || endDate) {
+            query.date = {};
+            if (startDate) query.date.$gte = new Date(startDate);
+            if (endDate) query.date.$lte = new Date(endDate);
+        }
+
+        const cashflow = await CashFlow.find(query)
+            .populate('client_id', 'company_name')
+            .populate('invoice_id', 'invoice_number')
+            .populate('received_by', 'full_name username')
+            .populate('approved_by', 'full_name username')
+            .sort({ date: -1 });
+
+        res.json(cashflow);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/cashflow/dashboard', async (req, res) => {
+    try {
+        const inflow = await CashFlow.aggregate([
+            { $match: { type: 'inflow' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const outflow = await CashFlow.aggregate([
+            { $match: { type: 'outflow' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+
+        res.json({
+            total_inflow: inflow[0]?.total || 0,
+            total_outflow: outflow[0]?.total || 0,
+            net_cash: (inflow[0]?.total || 0) - (outflow[0]?.total || 0)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/cashflow', async (req, res) => {
+    try {
+        const entry = new CashFlow({
+            ...req.body,
+            client_id: req.body.client_id ? toObjectId(req.body.client_id) : null,
+            invoice_id: req.body.invoice_id ? toObjectId(req.body.invoice_id) : null,
+            salary_id: req.body.salary_id ? toObjectId(req.body.salary_id) : null,
+            received_by: req.body.received_by ? toObjectId(req.body.received_by) : null,
+            approved_by: req.body.approved_by ? toObjectId(req.body.approved_by) : null,
+            created_by: toObjectId(req.body.created_by)
+        });
+        await entry.save();
+        res.status(201).json(entry);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.patch('/cashflow/:id', async (req, res) => {
+    try {
+        const entry = await CashFlow.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(entry);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/cashflow/:id', async (req, res) => {
+    try {
+        await CashFlow.findByIdAndDelete(req.params.id);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

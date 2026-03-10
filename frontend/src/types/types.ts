@@ -107,6 +107,48 @@ export interface Profile {
   skip_ip_restriction: boolean;
   client_id: string | null;
   shift_type: 'full_day' | 'half_day';
+  salary_per_month: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Salary {
+  id: string;
+  user_id: string;
+  user?: Profile;
+  month: number;
+  year: number;
+
+  // Earnings
+  basic_salary: number;
+  hra: number;
+  allowances: number;
+  bonus: number;
+  incentives: number;
+
+  // Attendance
+  total_working_days: number;
+  leave_days: number;
+  late_entries: number;
+
+  // Deductions
+  leave_deductions: number;
+  late_penalty: number;
+  pf: number;
+  other_deductions: number;
+
+  // Summaries
+  gross_salary: number;
+  total_deductions: number;
+  net_salary: number;
+
+  status: 'pending' | 'paid' | 'cancelled';
+  payment_method: 'bank_transfer' | 'cash' | 'cheque' | 'other';
+  payment_date: string | null;
+  transaction_id: string | null;
+  notes: string | null;
+  pdf_path: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -361,4 +403,28 @@ export interface Notification {
   is_read_by: string[];
   created_at: string;
   created_by: string | null;
+}
+export interface CashFlow {
+  id: string;
+  type: 'inflow' | 'outflow';
+  category: string;
+  amount: number;
+  date: string;
+  payment_mode: 'Cash' | 'Bank' | 'UPI' | 'Other';
+  client_id?: string | { id: string, company_name: string };
+  invoice_id?: string | { id: string, invoice_number: string };
+  salary_id?: string;
+  paid_to?: string;
+  received_by?: string | Profile;
+  approved_by?: string | Profile;
+  notes?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CashFlowDashboardStats {
+  total_inflow: number;
+  total_outflow: number;
+  net_cash: number;
 }

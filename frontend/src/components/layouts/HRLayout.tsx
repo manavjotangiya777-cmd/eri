@@ -32,6 +32,7 @@ import {
   UserX,
   Bell,
   AlertTriangle,
+  IndianRupee,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -55,6 +56,7 @@ const hrNavItems = [
   { icon: MessageSquare, label: 'Chat', path: '/hr/chat' },
   { icon: UserX, label: 'Absence Records', path: '/hr/absences' },
   { icon: AlertTriangle, label: 'Warnings', path: '/hr/warnings' },
+  { icon: IndianRupee, label: 'Payroll', path: '/hr/salaries' },
   { icon: Sparkles, label: 'AI Assistant', path: '/hr/ai-assistant' },
 ];
 

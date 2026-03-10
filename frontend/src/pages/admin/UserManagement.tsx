@@ -40,7 +40,7 @@ import { Badge } from '@/components/ui/badge';
 import { getAllProfiles, updateProfile, getActiveDepartments, getActiveDesignations, getAllClients, deleteProfile, adminCreateUser, adminChangePassword } from '@/db/api';
 import type { Profile, Department, Designation, Client } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Plus, Key, Eye, EyeOff, Filter, Trash2, ShieldCheck } from 'lucide-react';
+import { Pencil, Plus, Key, Eye, EyeOff, Filter, Trash2, ShieldCheck, IndianRupee } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import React from 'react';
 import { cn } from '@/lib/utils';
@@ -847,6 +847,23 @@ export default function UserManagement() {
                                                 checked={editUser.skip_ip_restriction}
                                                 onCheckedChange={(checked) => setEditUser({ ...editUser, skip_ip_restriction: checked })}
                                             />
+                                        </div>
+                                    )}
+                                    {(editUser.role === 'employee' || editUser.role === 'bde' || editUser.role === 'hr') && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="salary_per_month" className="text-sm font-semibold">Monthly Salary (₹)</Label>
+                                            <div className="relative">
+                                                <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    id="salary_per_month"
+                                                    type="number"
+                                                    className="h-11 pl-9 shadow-sm"
+                                                    value={editUser.salary_per_month || 0}
+                                                    onChange={(e) => setEditUser({ ...editUser, salary_per_month: Number(e.target.value) })}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground font-medium italic">Standard monthly pay for this user</p>
                                         </div>
                                     )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
