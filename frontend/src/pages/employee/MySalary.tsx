@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { IndianRupee, Download, TrendingUp, TrendingDown, History } from 'lucide-react';
+import { IndianRupee, Download, TrendingUp, History } from 'lucide-react';
 import { getAllSalaries } from '@/db/api';
 import type { Salary } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,7 +40,7 @@ export default function MySalary() {
         window.open(`${API_URL}/salaries/download/${id}`, '_blank');
     };
 
-    const totalEarnings = salaries.reduce((sum, s) => sum + s.net_salary, 0);
+    const totalEarnings = salaries.reduce((sum, s) => sum + (s.net_salary || 0), 0);
 
     return (
         <EmployeeLayout>
@@ -100,38 +100,49 @@ export default function MySalary() {
                         ) : (
                             <Table>
                                 <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Month & Year</TableHead>
-                                        <TableHead>Basic Salary</TableHead>
-                                        <TableHead>Bonus</TableHead>
-                                        <TableHead>Deductions</TableHead>
-                                        <TableHead>Net Salary</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
+                                    <TableRow className="bg-slate-900 hover:bg-slate-900">
+                                        <TableHead className="text-white font-bold">Month & Year</TableHead>
+                                        <TableHead className="text-white font-bold">Basic + HRA</TableHead>
+                                        <TableHead className="text-white font-bold">Extra Earnings</TableHead>
+                                        <TableHead className="text-white font-bold">Total Ded.</TableHead>
+                                        <TableHead className="text-white font-bold">Net Payable</TableHead>
+                                        <TableHead className="text-white font-bold">Status</TableHead>
+                                        <TableHead className="text-right text-white font-bold">Action</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {salaries.map(sal => (
-                                        <TableRow key={sal.id} className="hover:bg-slate-50 transition-colors">
-                                            <TableCell className="font-bold">
-                                                {MONTHS[sal.month]} {sal.year}
-                                            </TableCell>
-                                            <TableCell>₹{sal.basic_salary.toLocaleString('en-IN')}</TableCell>
-                                            <TableCell className="text-emerald-600">+₹{sal.bonus.toLocaleString('en-IN')}</TableCell>
-                                            <TableCell className="text-rose-600">-₹{sal.deductions.toLocaleString('en-IN')}</TableCell>
-                                            <TableCell className="font-black text-slate-900">₹{sal.net_salary.toLocaleString('en-IN')}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={sal.status === 'paid' ? 'default' : sal.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize">
-                                                    {sal.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="outline" size="sm" className="gap-2" onClick={() => handleDownload(sal.id)}>
-                                                    <Download className="h-4 w-4" /> Download PDF
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {salaries.map(sal => {
+                                        const extraEarnings = (sal.allowances || 0) + (sal.bonus || 0) + (sal.incentives || 0);
+                                        return (
+                                            <TableRow key={sal.id} className="hover:bg-slate-50 transition-colors">
+                                                <TableCell className="font-bold">
+                                                    {MONTHS[sal.month]} {sal.year}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium">₹{(sal.basic_salary + (sal.hra || 0)).toLocaleString('en-IN')}</div>
+                                                    <div className="text-[10px] text-muted-foreground italic">(Basic: ₹{sal.basic_salary.toLocaleString('en-IN')})</div>
+                                                </TableCell>
+                                                <TableCell className="text-emerald-600 font-medium">+₹{extraEarnings.toLocaleString('en-IN')}</TableCell>
+                                                <TableCell className="text-rose-600 font-medium">-₹{(sal.total_deductions || 0).toLocaleString('en-IN')}</TableCell>
+                                                <TableCell className="font-black text-slate-900 text-lg">₹{(sal.net_salary || 0).toLocaleString('en-IN')}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant={sal.status === 'paid' ? 'default' : sal.status === 'cancelled' ? 'destructive' : 'secondary'} className="capitalize px-3 py-1">
+                                                        {sal.status}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="gap-2 font-bold border-slate-300 hover:bg-slate-900 hover:text-white transition-all"
+                                                        onClick={() => handleDownload(sal.id)}
+                                                    >
+                                                        <Download className="h-4 w-4" /> Download PDF
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         )}

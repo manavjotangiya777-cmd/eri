@@ -281,7 +281,7 @@ export default function SalaryManagement({ Layout: UserLayout = Layout }: { Layo
                                             <TableCell className="text-right text-rose-600 font-medium">- ₹{sal.total_deductions?.toLocaleString('en-IN') || 0}</TableCell>
                                             <TableCell className="text-right">
                                                 <span className="bg-slate-900 text-white px-3 py-1 rounded-md text-xs font-black">
-                                                    ₹{sal.net_salary.toLocaleString('en-IN')}
+                                                    ₹{sal.net_salary?.toLocaleString('en-IN') || 0}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-center">

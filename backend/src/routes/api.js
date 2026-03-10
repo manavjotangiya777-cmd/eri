@@ -804,7 +804,41 @@ router.patch('/tasks/:id', handleTaskUpdate);
 // --- Standard CRUD Routes --- 
 defineStandardRoutes('/profiles', Profile, 'designation client');
 defineStandardRoutes('/clients', Client);
-defineStandardRoutes('/tasks', Task);
+
+// Modified Tasks route to restrict visibility for employees
+router.get('/tasks', async (req, res) => {
+    try {
+        const { assigned_to, user_id, role } = req.query;
+        let query = {};
+
+        // If not admin/hr, restrict to assigned tasks only
+        if (role !== 'admin' && role !== 'hr') {
+            const effectiveUserId = user_id || assigned_to;
+            if (effectiveUserId) {
+                query.assigned_to = toObjectId(effectiveUserId);
+            } else {
+                // If no user_id provided but they aren't admin/hr, show nothing or return error
+                return res.json([]);
+            }
+        } else if (assigned_to) {
+            query.assigned_to = toObjectId(assigned_to);
+        }
+
+        const tasks = await Task.find(query)
+            .populate('assigned_to', 'full_name username')
+            .populate('client_id', 'company_name')
+            .sort({ created_at: -1 });
+
+        res.json(tasks.map(t => {
+            const o = t.toObject({ virtuals: true });
+            o.id = o._id.toString();
+            return o;
+        }));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 defineStandardRoutes('/attendance', Attendance, 'user_id');
 defineStandardRoutes('/leaves', Leave);
 defineStandardRoutes('/departments', Department);
@@ -812,55 +846,7 @@ defineStandardRoutes('/designations', Designation, 'departments');
 defineStandardRoutes('/holidays', Holiday);
 defineStandardRoutes('/followups', FollowUp);
 
-// ─── Warning Routes ───────────────────────────────────────────────
-router.get('/warnings/my', async (req, res) => {
-    try {
-        const { role } = req.query;
-        const query = {
-            is_active: true,
-            $or: [
-                { target_role: 'all' },
-                { target_role: role }
-            ]
-        };
-        const warnings = await Warning.find(query).sort({ created_at: -1 });
-        res.json(warnings.map(w => { const o = w.toObject({ virtuals: true }); o.id = o._id.toString(); return o; }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-router.get('/warnings', async (req, res) => {
-    try {
-        const warnings = await Warning.find().sort({ created_at: -1 });
-        res.json(warnings.map(w => { const o = w.toObject({ virtuals: true }); o.id = o._id.toString(); return o; }));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-router.post('/warnings', async (req, res) => {
-    try {
-        const w = await Warning.create(req.body);
-        const o = w.toObject({ virtuals: true }); o.id = o._id.toString();
-        res.status(201).json(o);
-    } catch (err) { res.status(400).json({ error: err.message }); }
-});
-
-router.patch('/warnings', async (req, res) => {
-    const { id } = req.query;
-    try {
-        const w = await Warning.findByIdAndUpdate(id, req.body, { new: true });
-        if (!w) return res.status(404).json({ error: 'Not found' });
-        const o = w.toObject({ virtuals: true }); o.id = o._id.toString();
-        res.json(o);
-    } catch (err) { res.status(400).json({ error: err.message }); }
-});
-
-router.delete('/warnings', async (req, res) => {
-    const { id } = req.query;
-    try {
-        await Warning.findByIdAndDelete(id);
-        res.json({ success: true });
-    } catch (err) { res.status(400).json({ error: err.message }); }
-});
-// ─────────────────────────────────────────────────────────────────
+// --- Warnings Routes Re-defined below with security ---
 
 // /announcements/my MUST be before /announcements to avoid route shadowing
 router.get('/announcements/my', async (req, res) => {
@@ -1876,13 +1862,14 @@ router.get('/notifications', async (req, res) => {
         const { user_id, role, limit = 20 } = req.query;
         if (!user_id || !role) return res.status(400).json({ error: 'user_id and role are required' });
 
-        const query = {
-            $or: [
-                { target_role: 'all' },
-                { target_role: role },
-                { target_user: toObjectId(user_id) }
-            ]
-        };
+        let query = {};
+
+        if (role === 'admin') {
+            query = {}; // Admin sees all notifications
+        } else {
+            // Everyone else only sees notifications specifically for them
+            query = { target_user: toObjectId(user_id) };
+        }
 
         const notifications = await Notification.find(query)
             .sort({ created_at: -1 })
@@ -2127,13 +2114,9 @@ router.get('/warnings', async (req, res) => {
             // Admin view - see everything
             query = {};
         } else if (user_id && role) {
-            // Employee view - see global, role-based, or specifically targeted warnings
+            // Employee view - ONLY see specifically targeted warnings
             query = {
-                $or: [
-                    { target_role: 'all' },
-                    { target_role: role },
-                    { user_id: toObjectId(user_id) }
-                ],
+                user_id: toObjectId(user_id),
                 is_active: true
             };
         }
@@ -2173,6 +2156,20 @@ router.post('/warnings', async (req, res) => {
         });
 
         await warning.save();
+
+        // Send notification to the assigned user
+        if (user_id) {
+            const Notification = require('../models/Notification');
+            await Notification.create({
+                title: `⚠️ New Warning: ${title}`,
+                message: message,
+                target_user: toObjectId(user_id),
+                target_role: 'none',
+                type: 'warning',
+                created_by: toObjectId(created_by)
+            });
+        }
+
         res.status(201).json(warning);
     } catch (err) {
         console.error('Create warning error:', err);

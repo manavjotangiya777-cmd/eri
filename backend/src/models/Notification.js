@@ -11,7 +11,7 @@ const NotificationSchema = new mongoose.Schema({
     target_user: { type: mongoose.Schema.Types.ObjectId, ref: 'Profile', default: null },
     type: {
         type: String,
-        enum: ['system', 'announcement', 'birthday', 'task', 'attendance', 'leave', 'chat'],
+        enum: ['system', 'announcement', 'birthday', 'task', 'attendance', 'leave', 'chat', 'warning'],
         default: 'system'
     },
     is_read_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Profile' }],
@@ -33,7 +33,7 @@ async function cleanupNotifications(model) {
                 .sort({ created_at: 1 })
                 .limit(excess)
                 .select('_id');
-            
+
             if (oldest.length > 0) {
                 const idsToDelete = oldest.map(n => n._id);
                 await model.deleteMany({ _id: { $in: idsToDelete } });
@@ -46,12 +46,12 @@ async function cleanupNotifications(model) {
 }
 
 // Hook for individual saves (Task creation, Leave update, etc.)
-NotificationSchema.post('save', async function() {
+NotificationSchema.post('save', async function () {
     await cleanupNotifications(this.constructor);
 });
 
 // Hook for insertMany (Chat messages)
-NotificationSchema.post('insertMany', async function() {
+NotificationSchema.post('insertMany', async function () {
     await cleanupNotifications(this.constructor);
 });
 
