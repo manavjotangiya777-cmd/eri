@@ -1862,13 +1862,34 @@ router.get('/notifications', async (req, res) => {
         const { user_id, role, limit = 20 } = req.query;
         if (!user_id || !role) return res.status(400).json({ error: 'user_id and role are required' });
 
-        let query = {};
+        const currentUserId = toObjectId(user_id);
+        const query = {
+            $and: [
+                { created_by: { $ne: currentUserId } }, // Sender never gets the notification
+                {
+                    $or: [
+                        // Case 1: Warnings and Tasks (Strictly private to the assigned user)
+                        {
+                            type: { $in: ['warning', 'task'] },
+                            target_user: currentUserId
+                        },
+                        // Case 2: System, Birthdays, etc. (Follows role-based and targeting logic)
+                        {
+                            type: { $nin: ['warning', 'task'] },
+                            $or: [
+                                { target_role: 'all' },
+                                { target_role: role },
+                                { target_user: currentUserId }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
 
+        // Admins can see everything except their own sent notifications
         if (role === 'admin') {
-            query = {}; // Admin sees all notifications
-        } else {
-            // Everyone else only sees notifications specifically for them
-            query = { target_user: toObjectId(user_id) };
+            delete query.$and[1]; // Remove the restrictive visibility for admins
         }
 
         const notifications = await Notification.find(query)
