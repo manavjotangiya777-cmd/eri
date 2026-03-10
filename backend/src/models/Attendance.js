@@ -34,6 +34,8 @@ const AttendanceSchema = new mongoose.Schema({
     // Keep legacy fields for admin overview compatibility if possible
     is_late: { type: Boolean, default: false },
     late_minutes: { type: Number, default: 0 },
+    is_early_leave: { type: Boolean, default: false },
+    early_leave_minutes: { type: Number, default: 0 },
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
     toJSON: { virtuals: true },

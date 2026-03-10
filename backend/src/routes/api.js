@@ -365,25 +365,36 @@ router.post('/attendance/clock-out', ensureOfficeNetwork, async (req, res) => {
         record.totals.totalClockSeconds += diffSeconds;
         record.totals.workSeconds = record.totals.totalClockSeconds - record.totals.totalBreakSeconds;
 
-        // ── Overtime Calculation ──────────────────────────────────────
+        // ── Overtime & Early Leave Calculation ─────────────────────────
         try {
             const settings = await SystemSettings.findOne();
             const user = await Profile.findById(user_id);
             const shiftType = user?.shift_type || 'full_day';
-            const overtimeEnabled = settings?.overtime_enabled !== false; // defaults true
+            const overtimeEnabled = settings?.overtime_enabled !== false;
 
+            const thresholdHours = shiftType === 'half_day'
+                ? (settings?.half_day_overtime_threshold_hours ?? 4)
+                : (settings?.overtime_threshold_hours ?? 8);
+            const thresholdSeconds = thresholdHours * 3600;
+
+            // Overtime
             if (overtimeEnabled) {
-                const thresholdHours = shiftType === 'half_day'
-                    ? (settings?.half_day_overtime_threshold_hours ?? 4)
-                    : (settings?.overtime_threshold_hours ?? 8);
-                const thresholdSeconds = thresholdHours * 3600;
-                const overtime = Math.max(0, record.totals.workSeconds - thresholdSeconds);
-                record.totals.overtimeSeconds = overtime;
+                record.totals.overtimeSeconds = Math.max(0, record.totals.workSeconds - thresholdSeconds);
             } else {
                 record.totals.overtimeSeconds = 0;
             }
+
+            // Early Leave
+            if (record.totals.workSeconds < thresholdSeconds) {
+                record.is_early_leave = true;
+                record.early_leave_minutes = Math.round((thresholdSeconds - record.totals.workSeconds) / 60);
+            } else {
+                record.is_early_leave = false;
+                record.early_leave_minutes = 0;
+            }
         } catch (e) {
-            record.totals.overtimeSeconds = 0; // silently skip if settings unavailable
+            record.totals.overtimeSeconds = 0;
+            record.is_early_leave = false;
         }
 
         record.status = 'clocked_out';

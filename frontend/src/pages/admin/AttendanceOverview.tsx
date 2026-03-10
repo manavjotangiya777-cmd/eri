@@ -274,13 +274,34 @@ export default function AttendanceOverview() {
     if (!record || !getClockIn(record)) {
       return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 font-semibold">Absent</Badge>;
     }
+
+    const labels = [];
     if (record.is_late) {
+      labels.push(`Late +${record.late_minutes}m`);
+    }
+
+    // Only show Early Leave if they are currently clocked out
+    if (record.is_early_leave && record.status === 'clocked_out') {
+      labels.push(`Early Leave -${record.early_leave_minutes}m`);
+    }
+
+    if (labels.length > 0) {
       return (
-        <Badge className="bg-yellow-400/15 text-yellow-700 dark:text-yellow-400 border-yellow-400/30 font-semibold">
-          Late +{record.late_minutes}m
-        </Badge>
+        <div className="flex flex-col gap-1">
+          {labels.map((label, idx) => (
+            <Badge key={idx} className={cn(
+              "font-semibold w-fit",
+              label.includes('Late')
+                ? "bg-yellow-400/15 text-yellow-700 dark:text-yellow-400 border-yellow-400/30"
+                : "bg-orange-500/15 text-orange-600 border-orange-500/30"
+            )}>
+              {label}
+            </Badge>
+          ))}
+        </div>
       );
     }
+
     return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 font-semibold">On Time</Badge>;
   };
 

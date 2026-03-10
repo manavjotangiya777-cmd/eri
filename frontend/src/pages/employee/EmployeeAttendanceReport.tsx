@@ -119,17 +119,37 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
   };
 
   const StatusBadge = ({ record }: { record: Attendance }) => {
+    if (!record || !getClockIn(record)) {
+      return <Badge variant="outline" className="text-muted-foreground">-</Badge>;
+    }
+
+    const labels = [];
     if (record.is_late) {
+      labels.push(`Late +${record.late_minutes}m`);
+    }
+
+    if ((record as any).is_early_leave && record.status === 'clocked_out') {
+      labels.push(`Early Leave -${(record as any).early_leave_minutes}m`);
+    }
+
+    if (labels.length > 0) {
       return (
-        <Badge className="bg-yellow-400/15 text-yellow-700 dark:text-yellow-400 border-yellow-400/30 font-semibold">
-          Late +{record.late_minutes}m
-        </Badge>
+        <div className="flex flex-col gap-1">
+          {labels.map((label, idx) => (
+            <Badge key={idx} className={cn(
+              "font-semibold w-fit",
+              label.includes('Late')
+                ? "bg-yellow-400/15 text-yellow-700 dark:text-yellow-400 border-yellow-400/30"
+                : "bg-orange-500/15 text-orange-600 border-orange-500/30"
+            )}>
+              {label}
+            </Badge>
+          ))}
+        </div>
       );
     }
-    if (getClockIn(record)) {
-      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 font-semibold">On Time</Badge>;
-    }
-    return <Badge variant="outline" className="text-muted-foreground">-</Badge>;
+
+    return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 font-semibold">On Time</Badge>;
   };
 
   const attendanceKeys = new Set(attendance.map(a => a.date));
@@ -151,7 +171,7 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
   const totalDays = attendance.length;
   const lateDays = attendance.filter(a => a.is_late).length;
   const onTimeDays = attendance.filter(a => !a.is_late && getClockIn(a)).length;
-  const earlyDepartures = attendance.filter(a => (a as any).is_early_departure).length;
+  const earlyDepartures = attendance.filter(a => (a as any).is_early_leave).length;
   const totalWorkHours = attendance.reduce((sum, a) => sum + calculateHours(a), 0);
   const totalOvertimeHours = attendance.reduce((sum, a) => sum + calculateOvertime(a), 0);
   const avgWorkHours = totalDays > 0 ? (totalWorkHours / totalDays).toFixed(1) : '0';
@@ -299,7 +319,7 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
                         </TableCell>
                         <TableCell>
                           {formatTime(getClockOut(record))}
-                          {record.is_early_departure && (
+                          {(record as any).is_early_leave && (
                             <Badge variant="destructive" className="ml-2 text-xs">
                               Early
                             </Badge>
