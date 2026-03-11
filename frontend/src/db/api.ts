@@ -537,10 +537,11 @@ export const getMyAttendance = async (userId: string, limit = 30) => {
   return await fetcher(`attendance?user_id=${userId}&limit=${limit}`, {}, 'attendance') as Attendance[];
 };
 
-export const getAllAttendance = async (limit = 100, from?: string, to?: string) => {
+export const getAllAttendance = async (limit = 100, from?: string, to?: string, user_id?: string) => {
   let query = `attendance?limit=${limit}`;
   if (from) query += `&from=${from}`;
   if (to) query += `&to=${to}`;
+  if (user_id) query += `&user_id=${user_id}`;
   return await fetcher(query, {}, 'attendance') as Attendance[];
 };
 

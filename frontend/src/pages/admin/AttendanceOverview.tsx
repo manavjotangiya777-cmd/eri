@@ -13,6 +13,13 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type AttendanceRecord = any;
 
@@ -28,15 +35,19 @@ export default function AttendanceOverview() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const { toast } = useToast();
 
-  const loadData = async (from?: string, to?: string) => {
+  const loadData = async (from?: string, to?: string, userId?: string) => {
     setLoading(true);
+    const effectiveUserId = userId === undefined ? selectedUserId : userId;
+    const filterUserId = effectiveUserId === 'all' ? undefined : effectiveUserId;
+
     try {
       const [attendanceData, usersData, absenceData, settingsData] = await Promise.all([
-        getAllAttendance(500, from || startDate || undefined, to || endDate || undefined),
+        getAllAttendance(500, from || startDate || undefined, to || endDate || undefined, filterUserId),
         getAllProfiles(),
-        getAbsences({ from: from || startDate || undefined, to: to || endDate || undefined }),
+        getAbsences({ from: from || startDate || undefined, to: to || endDate || undefined, user_id: filterUserId }),
         getSystemSettings(),
       ]);
       setAttendance(attendanceData as any[]);
@@ -74,7 +85,8 @@ export default function AttendanceOverview() {
   const handleClearFilter = () => {
     setStartDate('');
     setEndDate('');
-    loadData('', '');
+    setSelectedUserId('all');
+    loadData('', '', 'all');
   };
 
   const exportToExcel = () => {
@@ -343,8 +355,26 @@ export default function AttendanceOverview() {
                 <Label htmlFor="end_date">End Date</Label>
                 <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
+              <div className="grid gap-2 flex-1 w-full">
+                <Label htmlFor="user_id text-nowrap">Employee</Label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Employees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Employees</SelectItem>
+                    {users
+                      .filter((u) => u.role === 'employee' || u.role === 'bde')
+                      .map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name || user.username}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex gap-2 w-full md:w-auto">
-                <Button variant="default" onClick={handleDateFilter} disabled={loading} className="gap-2 flex-1 md:flex-none">
+                <Button variant="default" onClick={() => loadData()} disabled={loading} className="gap-2 flex-1 md:flex-none">
                   <Filter className="h-4 w-4" /> Filter
                 </Button>
                 <Button variant="outline" onClick={handleClearFilter} disabled={loading}>
