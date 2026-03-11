@@ -10,8 +10,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getMyAttendance, getAbsences } from '@/db/api';
-import type { Attendance } from '@/types';
+import { getMyAttendance, getAbsences, getSystemSettings } from '@/db/api';
+import type { Attendance, SystemSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Clock, TrendingUp, UserX } from 'lucide-react';
@@ -25,6 +25,7 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
   const { profile } = useAuth();
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [absences, setAbsences] = useState<any[]>([]);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -32,12 +33,14 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
     if (!profile?.id) return;
     setLoading(true);
     try {
-      const [attendanceData, absenceData] = await Promise.all([
+      const [attendanceData, absenceData, settingsData] = await Promise.all([
         getMyAttendance(profile.id, 90),
-        getAbsences({ user_id: profile.id })
+        getAbsences({ user_id: profile.id }),
+        getSystemSettings()
       ]);
       setAttendance(attendanceData);
       setAbsences(absenceData);
+      setSettings(settingsData as any);
     } catch (error) {
       toast({
         title: 'Error',
@@ -118,6 +121,23 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
     return (r as any).overtime_hours || 0;
   };
 
+  const IST_TZ = 'Asia/Kolkata';
+  const getISTDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: IST_TZ }).format(new Date());
+  const getISTTimeInMinutes = () => {
+    const parts = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: false, timeZone: IST_TZ }).formatToParts(new Date());
+    return parseInt(parts.find(p => p.type === 'hour')!.value) * 60 + parseInt(parts.find(p => p.type === 'minute')!.value);
+  };
+
+  const todayStr = getISTDate();
+
+  const isShiftEnded = () => {
+    if (!profile || !settings) return true;
+    const shiftEnd = profile.shift_type === 'half_day' ? settings.half_day_end_time : settings.work_end_time;
+    if (!shiftEnd) return true;
+    const [h, m] = shiftEnd.split(':').map(Number);
+    return getISTTimeInMinutes() > (h * 60 + m);
+  };
+
   const StatusBadge = ({ record }: { record: Attendance }) => {
     if (!record || !getClockIn(record)) {
       return <Badge variant="outline" className="text-muted-foreground">-</Badge>;
@@ -128,7 +148,8 @@ export default function EmployeeAttendanceReport({ Layout = EmployeeLayout }: Em
       labels.push(`Late +${record.late_minutes}m`);
     }
 
-    if ((record as any).is_early_leave && record.status === 'clocked_out') {
+    const isToday = record.date === todayStr;
+    if ((record as any).is_early_leave && record.status === 'clocked_out' && (!isToday || isShiftEnded())) {
       labels.push(`Early Leave -${(record as any).early_leave_minutes}m`);
     }
 

@@ -280,8 +280,10 @@ export default function AttendanceOverview() {
       labels.push(`Late +${record.late_minutes}m`);
     }
 
-    // Only show Early Leave if they are currently clocked out
-    if (record.is_early_leave && record.status === 'clocked_out') {
+    // Only show Early Leave if they are currently clocked out AND the shift has ended (or it's a past date)
+    const isToday = record.date === todayStr;
+    const userProfile = record.user_id;
+    if (record.is_early_leave && record.status === 'clocked_out' && (!isToday || isShiftEnded(userProfile))) {
       labels.push(`Early Leave -${record.early_leave_minutes}m`);
     }
 
