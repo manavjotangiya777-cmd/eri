@@ -259,6 +259,7 @@ export interface Leave {
   status: LeaveStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  hr_comment?: string | null;
   created_at: string;
   updated_at: string;
 }

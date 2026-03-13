@@ -37,6 +37,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
 import { useFollowUpBadge } from '@/hooks/use-followup-badge';
+import { useContentUnread } from '@/hooks/use-content-unread';
 import { cn } from '@/lib/utils';
 
 interface HRLayoutProps {
@@ -79,6 +80,7 @@ export default function HRLayout({ children, fullWidth = false }: HRLayoutProps)
   const NavContent = () => {
     const unreadChatCount = useChatUnread();
     const followUpBadge = useFollowUpBadge();
+    const contentBadge = useContentUnread();
 
     return (
       <div className="flex flex-col h-full">
@@ -107,6 +109,7 @@ export default function HRLayout({ children, fullWidth = false }: HRLayoutProps)
             const isActive = location.pathname === item.path;
             const isChat = item.label === 'Chat';
             const isFollowUp = item.label === 'Follow-Ups';
+            const isContent = item.label === 'Content';
 
             return (
               <Link
@@ -130,6 +133,11 @@ export default function HRLayout({ children, fullWidth = false }: HRLayoutProps)
                 {isFollowUp && followUpBadge > 0 && (
                   <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full bg-amber-500 hover:bg-amber-500">
                     {followUpBadge > 9 ? '9+' : followUpBadge}
+                  </Badge>
+                )}
+                {isContent && contentBadge > 0 && (
+                  <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full bg-primary hover:bg-primary">
+                    {contentBadge > 9 ? '9+' : contentBadge}
                   </Badge>
                 )}
               </Link>

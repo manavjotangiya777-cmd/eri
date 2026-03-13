@@ -257,7 +257,7 @@ export default function AttendanceOverview() {
       })),
     // Dynamic "Not Clocked In" for today
     ...users
-      .filter(u => u.role === 'employee' || u.role === 'bde')
+      .filter(u => u.role === 'employee' || u.role === 'bde' || u.role === 'hr')
       .filter(u => {
         const uid = u.id || (u as any)._id?.toString();
         return !attendanceKeys.has(`${uid}_${todayStr}`);
@@ -364,7 +364,7 @@ export default function AttendanceOverview() {
                   <SelectContent>
                     <SelectItem value="all">All Employees</SelectItem>
                     {users
-                      .filter((u) => u.role === 'employee' || u.role === 'bde')
+                      .filter((u) => u.role === 'employee' || u.role === 'bde' || u.role === 'hr')
                       .map((user) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.full_name || user.username}

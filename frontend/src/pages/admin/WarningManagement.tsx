@@ -15,6 +15,12 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { getWarnings, createWarning, deleteWarning, getAllProfiles } from '@/db/api';
 import type { Warning, Profile, WarningSeverity } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -158,76 +164,92 @@ export default function WarningManagement({ Layout = AdminLayout }: { Layout?: a
                 </div>
 
                 <Card>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Target</TableHead>
-                                <TableHead>Severity</TableHead>
-                                <TableHead>Warning Info</TableHead>
-                                <TableHead>Issued By</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead className="w-[100px]">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-10">Loading warnings...</TableCell></TableRow>
-                            ) : filteredWarnings.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No warnings found.</TableCell></TableRow>
-                            ) : (
-                                filteredWarnings.map((w) => {
-                                    const SevIcon = SEVERITY_CONFIG[w.severity].icon;
-                                    return (
-                                        <TableRow key={w.id}>
-                                            <TableCell>
-                                                <div className="flex flex-col gap-1">
-                                                    {w.target_role === 'individual' ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <User className="h-3.5 w-3.5 text-primary" />
-                                                            <span className="font-semibold">{(w.user_id as any)?.full_name || 'Particular User'}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <Users className="h-3.5 w-3.5 text-slate-500" />
-                                                            <Badge variant="secondary" className="capitalize">{w.target_role}</Badge>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={cn("flex w-fit items-center gap-1 px-2 py-0.5", SEVERITY_CONFIG[w.severity].color)}>
-                                                    <SevIcon className="h-3 w-3" />
-                                                    {SEVERITY_CONFIG[w.severity].label}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="max-w-[300px]">
-                                                    <p className="font-bold text-sm truncate">{w.title}</p>
-                                                    <p className="text-xs text-muted-foreground line-clamp-2">{w.message}</p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="text-sm font-medium">{(w.created_by as any)?.full_name || 'Admin'}</span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {new Date(w.created_at).toLocaleDateString()}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex gap-2">
-                                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(w.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
+                    <TooltipProvider>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Target</TableHead>
+                                    <TableHead>Severity</TableHead>
+                                    <TableHead>Warning Info</TableHead>
+                                    <TableHead>Issued By</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead className="w-[100px]">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center py-10">Loading warnings...</TableCell></TableRow>
+                                ) : filteredWarnings.length === 0 ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No warnings found.</TableCell></TableRow>
+                                ) : (
+                                    filteredWarnings.map((w) => {
+                                        const SevIcon = SEVERITY_CONFIG[w.severity].icon;
+                                        return (
+                                            <TableRow key={w.id}>
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-1">
+                                                        {w.target_role === 'individual' ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <User className="h-3.5 w-3.5 text-primary" />
+                                                                <span className="font-semibold">{(w.user_id as any)?.full_name || 'Particular User'}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <Users className="h-3.5 w-3.5 text-slate-500" />
+                                                                <Badge variant="secondary" className="capitalize">{w.target_role}</Badge>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge className={cn("flex w-fit items-center gap-1 px-2 py-0.5", SEVERITY_CONFIG[w.severity].color)}>
+                                                        <SevIcon className="h-3 w-3" />
+                                                        {SEVERITY_CONFIG[w.severity].label}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="max-w-[300px]">
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <p className="font-bold text-sm truncate cursor-help">{w.title}</p>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="max-w-[300px] whitespace-normal">
+                                                                {w.title}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <p className="text-xs text-muted-foreground truncate cursor-help">{w.message}</p>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="max-w-[300px] whitespace-normal">
+                                                                {w.message}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="text-sm font-medium">{(w.created_by as any)?.full_name || 'Admin'}</span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                        <Calendar className="h-3 w-3" />
+                                                        {new Date(w.created_at).toLocaleDateString()}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-2">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(w.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TooltipProvider>
                 </Card>
 
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -9,6 +9,7 @@ const LeaveSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     reviewed_by: { type: mongoose.Schema.Types.Mixed, default: null },
     reviewed_at: { type: Date, default: null },
+    hr_comment: { type: String, default: null },
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });

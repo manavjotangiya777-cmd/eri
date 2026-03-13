@@ -22,7 +22,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { getEmployeeLeaves, createLeave } from '@/db/api';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { getEmployeeLeaves, createLeave, updateLeave } from '@/db/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Leave } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +38,10 @@ export default function EmployeeLeave() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editReason, setEditReason] = useState('');
   const { profile } = useAuth();
   const { toast } = useToast();
 
@@ -43,7 +53,7 @@ export default function EmployeeLeave() {
 
   const loadLeaves = async () => {
     if (!profile) return;
-    
+
     setLoading(true);
     try {
       const data = await getEmployeeLeaves(profile.id);
@@ -129,6 +139,20 @@ export default function EmployeeLeave() {
         return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
       default:
         return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const handleUpdateReason = async () => {
+    if (!selectedLeave) return;
+    try {
+      await updateLeave(selectedLeave.id, { reason: editReason });
+      toast({ title: 'Success', description: 'Leave description updated' });
+      setIsEditing(false);
+      loadLeaves();
+      // Update selectedLeave locally
+      setSelectedLeave({ ...selectedLeave, reason: editReason });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update description', variant: 'destructive' });
     }
   };
 
@@ -234,37 +258,134 @@ export default function EmployeeLeave() {
                 No leave requests found
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Start Date</TableHead>
-                    <TableHead>End Date</TableHead>
-                    <TableHead>Days</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Requested On</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaves.map((leave) => (
-                    <TableRow key={leave.id}>
-                      <TableCell>{formatDate(leave.start_date)}</TableCell>
-                      <TableCell>{formatDate(leave.end_date)}</TableCell>
-                      <TableCell>{calculateDays(leave.start_date, leave.end_date)} days</TableCell>
-                      <TableCell className="max-w-xs truncate">{leave.reason}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(leave.status)}>
-                          {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatDate(leave.created_at)}</TableCell>
+              <TooltipProvider>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>End Date</TableHead>
+                      <TableHead>Days</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Details</TableHead>
+                      <TableHead>Requested On</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {leaves.map((leave) => (
+                      <TableRow key={leave.id}>
+                        <TableCell>{formatDate(leave.start_date)}</TableCell>
+                        <TableCell>{formatDate(leave.end_date)}</TableCell>
+                        <TableCell>{calculateDays(leave.start_date, leave.end_date)} days</TableCell>
+                        <TableCell className="max-w-[150px]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="truncate cursor-help">{leave.reason || '-'}</div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[300px] whitespace-normal">
+                              {leave.reason || 'No reason provided'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge className={getStatusColor(leave.status)}>
+                              {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
+                            </Badge>
+                            {leave.hr_comment && (
+                              <span className="text-[10px] text-muted-foreground italic">Feedback: {leave.hr_comment.substring(0, 20)}...</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            setSelectedLeave(leave);
+                            setEditReason(leave.reason || '');
+                            setIsEditing(false);
+                            setViewDialogOpen(true);
+                          }}>
+                            View
+                          </Button>
+                        </TableCell>
+                        <TableCell>{formatDate(leave.created_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
             )}
           </CardContent>
         </Card>
+
+        {/* ── View Detail Dialog ── */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Leave Request Details</DialogTitle>
+              <DialogDescription>Details of your leave request</DialogDescription>
+            </DialogHeader>
+            {selectedLeave && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Leave Type</p>
+                    <Badge className="capitalize">{selectedLeave.leave_type}</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Duration</p>
+                    <p className="font-semibold">{formatDate(selectedLeave.start_date)} - {formatDate(selectedLeave.end_date)}</p>
+                    <p className="text-xs text-muted-foreground">{calculateDays(selectedLeave.start_date, selectedLeave.end_date)} days</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Status</p>
+                    <Badge className={getStatusColor(selectedLeave.status)}>{selectedLeave.status}</Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground font-medium">Description / Reason</p>
+                    {selectedLeave.status === 'pending' && !isEditing && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setIsEditing(true)}>Edit</Button>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editReason}
+                        onChange={(e) => setEditReason(e.target.value)}
+                        rows={4}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                        <Button size="sm" onClick={handleUpdateReason}>Save Changes</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-lg bg-muted/50 border text-sm whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                      {selectedLeave.reason || 'No description provided'}
+                    </div>
+                  )}
+                </div>
+
+                {selectedLeave.hr_comment && (
+                  <div className="space-y-2 border-t pt-4">
+                    <p className="text-sm font-bold text-primary flex items-center gap-1.5">
+                      HR Feedback
+                    </p>
+                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 text-sm italic">
+                      "{selectedLeave.hr_comment}"
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 border-t pt-4">
+                  <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Close</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </EmployeeLayout>
   );

@@ -68,6 +68,49 @@ export default function HRContentManagement() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [activeTab, setActiveTab] = useState('holidays');
+  const [lastSeen, setLastSeen] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem(`hr_content_seen_${profile?.id}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const markTabSeen = (tab: string) => {
+    const now = new Date().toISOString();
+    const updated = { ...lastSeen, [tab]: now };
+    setLastSeen(updated);
+    localStorage.setItem(`hr_content_seen_${profile?.id}`, JSON.stringify(updated));
+    window.dispatchEvent(new Event('content-seen'));
+  };
+
+  useEffect(() => {
+    if (profile?.id) {
+      markTabSeen(activeTab);
+    }
+  }, [activeTab, profile?.id]);
+
+  const getUnreadCount = (items: any[], tabKey: string) => {
+    const seenAt = lastSeen[tabKey];
+    if (!seenAt) return items.length;
+    const seenDate = new Date(seenAt);
+    return items.filter(item => {
+      const date = item.updated_at ? new Date(item.updated_at) : new Date(item.created_at);
+      return date > seenDate;
+    }).length;
+  };
+
+  const getBirthdayUnread = () => {
+    const seenAt = lastSeen['birthdays'];
+    const upcoming = getUpcomingBirthdays();
+    if (!seenAt) return upcoming.length;
+    const seenDate = new Date(seenAt);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Only show if seenDate is before today (show once daily if there are upcoming)
+    if (seenDate < today && upcoming.length > 0) return upcoming.length;
+    return 0;
+  };
+
   const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
   const [announcementDialogOpen, setAnnouncementDialogOpen] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
@@ -445,43 +488,73 @@ export default function HRContentManagement() {
           </div>
         </div>
 
-        <Tabs defaultValue="holidays" className="w-full space-y-6">
+        <Tabs
+          defaultValue="holidays"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full space-y-6"
+        >
           <TabsList className="flex flex-wrap md:grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1.5 bg-muted/30 backdrop-blur-sm rounded-2xl border border-muted-foreground/5 sticky top-0 z-10">
-            <TabsTrigger value="holidays" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+            <TabsTrigger value="holidays" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <Calendar className="h-4 w-4 mr-2 text-primary/70" />
               Holidays
+              {getUnreadCount(holidays, 'holidays') > 0 && activeTab !== 'holidays' && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center animate-bounce">
+                  {getUnreadCount(holidays, 'holidays')}
+                </span>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="birthdays" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+            <TabsTrigger value="birthdays" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <Cake className="h-4 w-4 mr-2 text-primary/70" />
               Birthdays
+              {getBirthdayUnread() > 0 && activeTab !== 'birthdays' && (
+                <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center">
+                  {getBirthdayUnread()}
+                </span>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+            <TabsTrigger value="announcements" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <Bell className="h-4 w-4 mr-2 text-primary/70" />
               Announcements
+              {getUnreadCount(announcements, 'announcements') > 0 && activeTab !== 'announcements' && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center animate-bounce">
+                  {getUnreadCount(announcements, 'announcements')}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="followups" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <Bell className="h-4 w-4 mr-2 text-amber-500" />
               My Follow-Ups
-              {followUps.filter(f => f.status !== 'completed').length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center">
-                  {followUps.filter(f => f.status !== 'completed').length}
+              {getUnreadCount(followUps.filter(f => f.status !== 'completed'), 'followups') > 0 && activeTab !== 'followups' && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center animate-bounce">
+                  {getUnreadCount(followUps.filter(f => f.status !== 'completed'), 'followups')}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="documents" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+            <TabsTrigger value="documents" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <FileText className="h-4 w-4 mr-2 text-primary/70" />
               Documents
+              {getUnreadCount(documents, 'documents') > 0 && activeTab !== 'documents' && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center animate-bounce">
+                  {getUnreadCount(documents, 'documents')}
+                </span>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+            <TabsTrigger value="notifications" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <Bell className="h-4 w-4 mr-2 text-primary/70" />
               Notifications
+              {getUnreadCount(notifications, 'notifications') > 0 && activeTab !== 'notifications' && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center animate-bounce">
+                  {getUnreadCount(notifications, 'notifications')}
+                </span>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="warnings" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200">
+            <TabsTrigger value="warnings" className="rounded-xl py-3 data-[state=active]:shadow-md transition-all duration-200 relative">
               <AlertTriangle className="h-4 w-4 mr-2 text-red-500" />
               Warnings
-              {warnings.filter(w => w.is_active).length > 0 && (
-                <span className="ml-1.5 bg-red-500 text-white text-[9px] font-black rounded-full h-4 w-4 inline-flex items-center justify-center">
-                  {warnings.filter(w => w.is_active).length}
+              {getUnreadCount(warnings.filter(w => w.is_active), 'warnings') > 0 && activeTab !== 'warnings' && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black rounded-full h-4 w-4 flex items-center justify-center animate-bounce">
+                  {getUnreadCount(warnings.filter(w => w.is_active), 'warnings')}
                 </span>
               )}
             </TabsTrigger>

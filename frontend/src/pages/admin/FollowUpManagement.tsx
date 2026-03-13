@@ -16,6 +16,12 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     getAllFollowUps, createFollowUp, updateFollowUp, deleteFollowUp, getAllProfiles,
 } from '@/db/api';
 import type { FollowUp, FollowUpTaskType, FollowUpStatus, Profile, FollowUpUpdateNote } from '@/types';
@@ -300,77 +306,95 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
                             </div>
                         ) : (
                             <div className="overflow-x-auto -mx-6 px-6">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent text-nowrap">
-                                            <TableHead className="min-w-[100px]">ID</TableHead>
-                                            <TableHead className="min-w-[220px]">Title / Type</TableHead>
-                                            <TableHead className="min-w-[150px]">Related</TableHead>
-                                            <TableHead className="min-w-[140px]">Assigned To</TableHead>
-                                            <TableHead className="min-w-[80px]">Via</TableHead>
-                                            <TableHead className="min-w-[120px]">Status</TableHead>
-                                            <TableHead className="min-w-[120px]">Deadline</TableHead>
-                                            <TableHead className="min-w-[130px]">Next Action</TableHead>
-                                            <TableHead className="min-w-[100px] text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filtered.map(fu => {
-                                            const sc = STATUS_CONFIG[fu.status];
-                                            const tt = TASK_TYPES[fu.task_type];
-                                            const isOverdue = fu.deadline && fu.status !== 'completed' && new Date(fu.deadline) < new Date();
-                                            return (
-                                                <TableRow key={fu.id} className="group hover:bg-slate-50/60">
-                                                    <TableCell>
-                                                        <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                                                            {fu.followup_id || '-'}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <p className="font-semibold text-slate-900 line-clamp-1">{fu.title}</p>
-                                                        <p className="text-xs text-muted-foreground">{tt?.emoji} {tt?.label}</p>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div>
-                                                            <p className="text-sm font-medium">{fu.related_name || '-'}</p>
-                                                            <p className="text-xs text-muted-foreground capitalize">{fu.related_type}</p>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">{getUserName(fu.assigned_to)}</TableCell>
-                                                    <TableCell>
-                                                        <span className="flex items-center gap-1.5 text-xs capitalize">
-                                                            {COMM_ICONS[fu.communication_method as keyof typeof COMM_ICONS] || COMM_ICONS.other}
-                                                            {fu.communication_method}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge className={cn('border text-xs', sc.color)}>{sc.label}</Badge>
-                                                    </TableCell>
-                                                    <TableCell className={cn('text-sm', isOverdue ? 'text-red-500 font-semibold' : 'text-slate-600')}>
-                                                        {fu.deadline ? new Date(fu.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
-                                                        {isOverdue && ' ⚠️'}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-slate-600">
-                                                        {fu.next_action_date ? new Date(fu.next_action_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleView(fu)}>
-                                                                <Eye className="h-4 w-4 text-blue-500" />
-                                                            </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleEdit(fu)}>
-                                                                <Pencil className="h-4 w-4 text-slate-500" />
-                                                            </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-red-50" onClick={() => handleDelete(fu.id)}>
-                                                                <Trash2 className="h-4 w-4 text-red-400" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
+                                <TooltipProvider>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="hover:bg-transparent text-nowrap">
+                                                <TableHead className="min-w-[100px]">ID</TableHead>
+                                                <TableHead className="min-w-[220px]">Title / Type</TableHead>
+                                                <TableHead className="min-w-[150px]">Related</TableHead>
+                                                <TableHead className="min-w-[140px]">Assigned To</TableHead>
+                                                <TableHead className="min-w-[80px]">Via</TableHead>
+                                                <TableHead className="min-w-[120px]">Status</TableHead>
+                                                <TableHead className="min-w-[120px]">Deadline</TableHead>
+                                                <TableHead className="min-w-[130px]">Next Action</TableHead>
+                                                <TableHead className="min-w-[100px] text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filtered.map(fu => {
+                                                const sc = STATUS_CONFIG[fu.status];
+                                                const tt = TASK_TYPES[fu.task_type];
+                                                const isOverdue = fu.deadline && fu.status !== 'completed' && new Date(fu.deadline) < new Date();
+                                                return (
+                                                    <TableRow key={fu.id} className="group hover:bg-slate-50/60">
+                                                        <TableCell>
+                                                            <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                                                {fu.followup_id || '-'}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="max-w-[200px]">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <p className="font-semibold text-slate-900 truncate cursor-help">{fu.title}</p>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent className="max-w-[300px] whitespace-normal">
+                                                                        {fu.title}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                                <p className="text-xs text-muted-foreground">{tt?.emoji} {tt?.label}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="max-w-[150px]">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <p className="text-sm font-medium truncate cursor-help">{fu.related_name || '-'}</p>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent className="max-w-[300px] whitespace-normal">
+                                                                        Related: {fu.related_name || '-'}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                                <p className="text-xs text-muted-foreground capitalize">{fu.related_type}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm">{getUserName(fu.assigned_to)}</TableCell>
+                                                        <TableCell>
+                                                            <span className="flex items-center gap-1.5 text-xs capitalize">
+                                                                {COMM_ICONS[fu.communication_method as keyof typeof COMM_ICONS] || COMM_ICONS.other}
+                                                                {fu.communication_method}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge className={cn('border text-xs', sc.color)}>{sc.label}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className={cn('text-sm', isOverdue ? 'text-red-500 font-semibold' : 'text-slate-600')}>
+                                                            {fu.deadline ? new Date(fu.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
+                                                            {isOverdue && ' ⚠️'}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-slate-600">
+                                                            {fu.next_action_date ? new Date(fu.next_action_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleView(fu)}>
+                                                                    <Eye className="h-4 w-4 text-blue-500" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleEdit(fu)}>
+                                                                    <Pencil className="h-4 w-4 text-slate-500" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-red-50" onClick={() => handleDelete(fu.id)}>
+                                                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </TooltipProvider>
                             </div>
                         )}
                     </CardContent>

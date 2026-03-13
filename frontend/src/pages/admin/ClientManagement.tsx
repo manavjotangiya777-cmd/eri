@@ -27,6 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -484,74 +490,101 @@ export default function ClientManagement({ Layout = AdminLayout }: ClientManagem
             {loading ? (
               <div className="text-center py-8">Loading...</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Sector/Industry</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClients.length === 0 ? (
+              <TooltipProvider>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">
-                        No clients found matching your filters.
-                      </TableCell>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Sector/Industry</TableHead>
+                      <TableHead>Contact Person</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ) : filteredClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">
-                        <div>{client.company_name}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">{client.email}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant="outline" className="w-fit text-[9px] h-4 uppercase">{client.sector || 'B2B'}</Badge>
-                          <Badge variant="outline" className="w-fit text-[9px] h-4 uppercase">{client.industry || 'Private'}</Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-xs">{client.contact_person}</div>
-                        <div className="text-[10px] text-muted-foreground">{client.phone}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
-                          {client.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleManage(client)}
-                          >
-                            <Building2 className="h-4 w-4 mr-1" />
-                            Manage
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(client)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(client.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClients.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">
+                          No clients found matching your filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredClients.map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">
+                          <div className="max-w-[200px]">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="truncate cursor-help">{client.company_name}</div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {client.company_name}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-[10px] text-muted-foreground font-mono truncate cursor-help">{client.email}</div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Email: {client.email}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="w-fit text-[9px] h-4 uppercase">{client.sector || 'B2B'}</Badge>
+                            <Badge variant="outline" className="w-fit text-[9px] h-4 uppercase">{client.industry || 'Private'}</Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-[150px]">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="font-medium text-xs truncate cursor-help">{client.contact_person}</div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Contact: {client.contact_person}
+                              </TooltipContent>
+                            </Tooltip>
+                            <div className="text-[10px] text-muted-foreground">{client.phone}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
+                            {client.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleManage(client)}
+                            >
+                              <Building2 className="h-4 w-4 mr-1" />
+                              Manage
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(client)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(client.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
             )}
           </CardContent>
         </Card>

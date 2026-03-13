@@ -16,6 +16,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { getAllTasks, createTask, updateTask, deleteTask, getAllProfiles, getAllClients, updateTask as apiUpdateTask } from '@/db/api';
 import type { Task, Profile, Client, TaskWorkUpdate, TaskAttachment } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -325,74 +331,92 @@ export default function TaskManagement() {
               </div>
             ) : (
               <div className="overflow-x-auto -mx-6 px-6">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="text-nowrap hover:bg-transparent">
-                      <TableHead className="min-w-[100px]">Task ID</TableHead>
-                      <TableHead className="min-w-[220px]">Title</TableHead>
-                      <TableHead className="min-w-[120px]">Department</TableHead>
-                      <TableHead className="min-w-[140px]">Assigned To</TableHead>
-                      <TableHead className="min-w-[100px]">Priority</TableHead>
-                      <TableHead className="min-w-[120px]">Status</TableHead>
-                      <TableHead className="min-w-[130px]">Deadline</TableHead>
-                      <TableHead className="min-w-[120px] text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTasks.map(task => {
-                      const sc = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
-                      const pc = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
-                      const isOverdue = task.deadline && task.status !== 'completed' && new Date(task.deadline) < new Date();
-                      return (
-                        <TableRow key={task.id} className="group hover:bg-slate-50/60">
-                          <TableCell>
-                            <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                              {task.task_id || '-'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-semibold text-slate-900 line-clamp-1">{task.title}</p>
-                              {task.client_id && <p className="text-xs text-muted-foreground">{getClientName(task.client_id)}</p>}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {task.department ? (
-                              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">{task.department}</span>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell className="text-sm">{getUserName(task.assigned_to)}</TableCell>
-                          <TableCell>
-                            <Badge className={cn('border text-xs', pc.color)}>
-                              <span className={cn('h-1.5 w-1.5 rounded-full mr-1.5', pc.dot)} />
-                              {pc.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={cn('border text-xs', sc.color)}>{sc.label}</Badge>
-                          </TableCell>
-                          <TableCell className={cn('text-sm', isOverdue ? 'text-red-500 font-semibold' : 'text-slate-600')}>
-                            {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                            {isOverdue && <span className="ml-1 text-xs">⚠️</span>}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleView(task)}>
-                                <Eye className="h-4 w-4 text-blue-500" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleEdit(task)}>
-                                <Pencil className="h-4 w-4 text-slate-500" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-red-50" onClick={() => handleDelete(task.id)}>
-                                <Trash2 className="h-4 w-4 text-red-400" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <TooltipProvider>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-nowrap hover:bg-transparent">
+                        <TableHead className="min-w-[100px]">Task ID</TableHead>
+                        <TableHead className="min-w-[220px]">Title</TableHead>
+                        <TableHead className="min-w-[120px]">Department</TableHead>
+                        <TableHead className="min-w-[140px]">Assigned To</TableHead>
+                        <TableHead className="min-w-[100px]">Priority</TableHead>
+                        <TableHead className="min-w-[120px]">Status</TableHead>
+                        <TableHead className="min-w-[130px]">Deadline</TableHead>
+                        <TableHead className="min-w-[120px] text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTasks.map(task => {
+                        const sc = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
+                        const pc = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
+                        const isOverdue = task.deadline && task.status !== 'completed' && new Date(task.deadline) < new Date();
+                        return (
+                          <TableRow key={task.id} className="group hover:bg-slate-50/60">
+                            <TableCell>
+                              <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                {task.task_id || '-'}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-[200px]">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <p className="font-semibold text-slate-900 truncate cursor-help">{task.title}</p>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-[300px] whitespace-normal">
+                                    {task.title}
+                                  </TooltipContent>
+                                </Tooltip>
+                                {task.client_id && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-xs text-muted-foreground truncate cursor-help">{getClientName(task.client_id)}</p>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-[300px] whitespace-normal">
+                                      Project: {getClientName(task.client_id)}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {task.department ? (
+                                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">{task.department}</span>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm">{getUserName(task.assigned_to)}</TableCell>
+                            <TableCell>
+                              <Badge className={cn('border text-xs', pc.color)}>
+                                <span className={cn('h-1.5 w-1.5 rounded-full mr-1.5', pc.dot)} />
+                                {pc.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={cn('border text-xs', sc.color)}>{sc.label}</Badge>
+                            </TableCell>
+                            <TableCell className={cn('text-sm', isOverdue ? 'text-red-500 font-semibold' : 'text-slate-600')}>
+                              {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                              {isOverdue && <span className="ml-1 text-xs">⚠️</span>}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleView(task)}>
+                                  <Eye className="h-4 w-4 text-blue-500" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleEdit(task)}>
+                                  <Pencil className="h-4 w-4 text-slate-500" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-red-50" onClick={() => handleDelete(task.id)}>
+                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TooltipProvider>
               </div>
             )}
           </CardContent>
