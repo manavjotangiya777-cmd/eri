@@ -69,9 +69,9 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             {settings?.company_logo ? (
-              <img 
-                src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`} 
-                alt="Logo" 
+              <img
+                src={settings.company_logo.startsWith('http') ? settings.company_logo : `${FILE_BASE}${settings.company_logo}`}
+                alt="Logo"
                 className="h-8 w-auto object-contain max-w-[150px] mt-2"
               />
             ) : (

@@ -32,6 +32,7 @@ import {
   Bell,
   Info,
   IndianRupee,
+  HardDrive,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -156,6 +157,16 @@ export default function BDELayout({ children }: BDELayoutProps) {
           </Sheet>
 
           <div className="flex-1" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => window.open('https://drive.google.com', '_blank')}
+            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            title="Google Drive"
+          >
+            <HardDrive className="h-5 w-5" />
+          </Button>
 
           <NotificationCenter />
 
