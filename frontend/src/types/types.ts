@@ -371,6 +371,7 @@ export interface SystemSettings {
   half_day_late_threshold: number;
   half_day_work_hours: number;
   invoice_template: string | null;
+  company_logo: string | null;
   updated_at: string;
 }
 

@@ -5,9 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getSystemSettings } from '@/db/api';
 import { FILE_BASE } from '@/config';
-import { useEffect } from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,12 +60,8 @@ export default function BDELayout({ children }: BDELayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const { settings } = useSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [settings, setSettings] = useState<any>(null);
-
-  useEffect(() => {
-    getSystemSettings().then(setSettings).catch(console.error);
-  }, []);
 
   const handleLogout = async () => {
     await signOut();

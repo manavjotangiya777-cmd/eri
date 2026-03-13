@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import { getSystemSettings, updateSystemSettings } from '@/db/api';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Settings, CalendarDays, Info, FileText, Code, Upload, Trash2, ImageIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,6 +31,7 @@ export default function SystemSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { refreshSettings } = useSettings();
 
   const loadSettings = async () => {
     setLoading(true);
@@ -80,6 +82,7 @@ export default function SystemSettingsPage() {
         company_logo: settings.company_logo,
       } as any);
       toast({ title: 'Success', description: 'Settings updated successfully' });
+      await refreshSettings();
       loadSettings();
     } catch {
       toast({ title: 'Error', description: 'Failed to update settings', variant: 'destructive' });
