@@ -46,6 +46,7 @@ export default function HRLeaveManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     leave_type: 'personal',
+    day_type: 'full_day',
     start_date: '',
     end_date: '',
     reason: '',
@@ -132,6 +133,7 @@ export default function HRLeaveManagement() {
       await createLeave({
         user_id: profile.id,
         leave_type: formData.leave_type,
+        day_type: formData.day_type as 'full_day' | 'half_day',
         start_date: formData.start_date,
         end_date: formData.end_date,
         reason: formData.reason,
@@ -139,7 +141,7 @@ export default function HRLeaveManagement() {
       });
       toast({ title: 'Success', description: 'Leave request submitted to Admin successfully' });
       setDialogOpen(false);
-      setFormData({ leave_type: 'personal', start_date: '', end_date: '', reason: '' });
+      setFormData({ leave_type: 'personal', day_type: 'full_day', start_date: '', end_date: '', reason: '' });
       loadMyLeaves();
     } catch {
       toast({ title: 'Error', description: 'Failed to submit leave request', variant: 'destructive' });
@@ -159,7 +161,10 @@ export default function HRLeaveManagement() {
   }[status] || 'bg-muted text-muted-foreground');
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  const calcDays = (s: string, e: string) => Math.ceil((new Date(e).getTime() - new Date(s).getTime()) / 86400000) + 1;
+  const calcDays = (s: string, e: string, dayType?: string) => {
+    if (dayType === 'half_day') return 'HF';
+    return (Math.ceil((new Date(e).getTime() - new Date(s).getTime()) / 86400000) + 1).toString();
+  };
 
   const myPendingCount = myLeaves.filter(l => l.status === 'pending').length;
 
@@ -237,7 +242,7 @@ export default function HRLeaveManagement() {
                             <TableCell className="capitalize">{leave.leave_type}</TableCell>
                             <TableCell>{formatDate(leave.start_date)}</TableCell>
                             <TableCell>{formatDate(leave.end_date)}</TableCell>
-                            <TableCell>{calcDays(leave.start_date, leave.end_date)}</TableCell>
+                            <TableCell>{calcDays(leave.start_date, leave.end_date, leave.day_type)}</TableCell>
                             <TableCell className="max-w-[150px]">
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -347,7 +352,7 @@ export default function HRLeaveManagement() {
                             <TableCell className="capitalize">{leave.leave_type}</TableCell>
                             <TableCell>{formatDate(leave.start_date)}</TableCell>
                             <TableCell>{formatDate(leave.end_date)}</TableCell>
-                            <TableCell>{calcDays(leave.start_date, leave.end_date)} days</TableCell>
+                            <TableCell>{calcDays(leave.start_date, leave.end_date, leave.day_type)}</TableCell>
                             <TableCell className="max-w-[150px]">
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -396,7 +401,10 @@ export default function HRLeaveManagement() {
                   <div className="space-y-1">
                     <p className="text-muted-foreground">Duration</p>
                     <p className="font-semibold">{formatDate(selectedLeave.start_date)} - {formatDate(selectedLeave.end_date)}</p>
-                    <p className="text-xs text-muted-foreground">{calcDays(selectedLeave.start_date, selectedLeave.end_date)} days</p>
+                    <p className="text-xs text-muted-foreground">
+                      {calcDays(selectedLeave.start_date, selectedLeave.end_date, selectedLeave.day_type)}
+                      {selectedLeave.day_type === 'full_day' && ' Days'}
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-muted-foreground">Status</p>
@@ -459,16 +467,38 @@ export default function HRLeaveManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Duration Type *</Label>
+                <Select value={formData.day_type} onValueChange={(v) => {
+                  const updates: any = { day_type: v };
+                  if (v === 'half_day' && formData.start_date) updates.end_date = formData.start_date;
+                  setFormData({ ...formData, ...updates });
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full_day">Full Day</SelectItem>
+                    <SelectItem value="half_day">Half Day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="hr_start_date">Start Date *</Label>
                   <Input id="hr_start_date" type="date" value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} required />
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        start_date: val,
+                        end_date: prev.day_type === 'half_day' ? val : prev.end_date
+                      }));
+                    }} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hr_end_date">End Date *</Label>
                   <Input id="hr_end_date" type="date" value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} required />
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    disabled={formData.day_type === 'half_day'} required />
                 </div>
               </div>
               <div className="space-y-2">

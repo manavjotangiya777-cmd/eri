@@ -253,6 +253,7 @@ export interface Leave {
   id: string;
   user_id: string;
   leave_type: string;
+  day_type?: 'full_day' | 'half_day';
   start_date: string;
   end_date: string;
   reason: string | null;

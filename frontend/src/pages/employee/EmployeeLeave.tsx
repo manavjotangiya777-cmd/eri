@@ -28,6 +28,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { getEmployeeLeaves, createLeave, updateLeave } from '@/db/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Leave } from '@/types';
@@ -46,6 +49,7 @@ export default function EmployeeLeave() {
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
+    day_type: 'full_day',
     start_date: '',
     end_date: '',
     reason: '',
@@ -101,6 +105,7 @@ export default function EmployeeLeave() {
       await createLeave({
         user_id: profile.id,
         leave_type: 'personal',
+        day_type: formData.day_type as 'full_day' | 'half_day',
         start_date: formData.start_date,
         end_date: formData.end_date,
         reason: formData.reason,
@@ -114,6 +119,7 @@ export default function EmployeeLeave() {
 
       setDialogOpen(false);
       setFormData({
+        day_type: 'full_day',
         start_date: '',
         end_date: '',
         reason: '',
@@ -164,12 +170,13 @@ export default function EmployeeLeave() {
     });
   };
 
-  const calculateDays = (startDate: string, endDate: string) => {
+  const calculateDays = (startDate: string, endDate: string, dayType?: string) => {
+    if (dayType === 'half_day') return 'HF';
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays;
+    return diffDays.toString();
   };
 
   if (loading) {
@@ -204,12 +211,33 @@ export default function EmployeeLeave() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
+                  <Label>Duration Type *</Label>
+                  <Select value={formData.day_type} onValueChange={(v) => {
+                    const updates: any = { day_type: v };
+                    if (v === 'half_day' && formData.start_date) updates.end_date = formData.start_date;
+                    setFormData({ ...formData, ...updates });
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full_day">Full Day</SelectItem>
+                      <SelectItem value="half_day">Half Day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date *</Label>
                   <Input
                     id="start_date"
                     type="date"
                     value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        start_date: val,
+                        end_date: prev.day_type === 'half_day' ? val : prev.end_date
+                      }));
+                    }}
                     required
                   />
                 </div>
@@ -221,6 +249,7 @@ export default function EmployeeLeave() {
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                     required
+                    disabled={formData.day_type === 'half_day'}
                   />
                 </div>
                 <div className="space-y-2">
@@ -276,7 +305,7 @@ export default function EmployeeLeave() {
                       <TableRow key={leave.id}>
                         <TableCell>{formatDate(leave.start_date)}</TableCell>
                         <TableCell>{formatDate(leave.end_date)}</TableCell>
-                        <TableCell>{calculateDays(leave.start_date, leave.end_date)} days</TableCell>
+                        <TableCell>{calculateDays(leave.start_date, leave.end_date, leave.day_type)}</TableCell>
                         <TableCell className="max-w-[150px]">
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -334,7 +363,10 @@ export default function EmployeeLeave() {
                   <div className="space-y-1">
                     <p className="text-muted-foreground">Duration</p>
                     <p className="font-semibold">{formatDate(selectedLeave.start_date)} - {formatDate(selectedLeave.end_date)}</p>
-                    <p className="text-xs text-muted-foreground">{calculateDays(selectedLeave.start_date, selectedLeave.end_date)} days</p>
+                    <p className="text-xs text-muted-foreground">
+                      {calculateDays(selectedLeave.start_date, selectedLeave.end_date, selectedLeave.day_type)}
+                      {selectedLeave.day_type === 'full_day' && ' Days'}
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-muted-foreground">Status</p>

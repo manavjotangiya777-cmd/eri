@@ -95,7 +95,10 @@ export default function AdminLeaveRequests() {
   }[status] || 'bg-muted text-muted-foreground');
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  const calcDays = (s: string, e: string) => Math.ceil((new Date(e).getTime() - new Date(s).getTime()) / 86400000) + 1;
+  const calcDays = (s: string, e: string, dayType?: string) => {
+    if (dayType === 'half_day') return 'HF';
+    return (Math.ceil((new Date(e).getTime() - new Date(s).getTime()) / 86400000) + 1).toString();
+  };
 
   const pendingCount = leaves.filter(l => l.status === 'pending').length;
   const approvedCount = leaves.filter(l => l.status === 'approved').length;
@@ -168,7 +171,7 @@ export default function AdminLeaveRequests() {
                         <TableCell className="capitalize">{leave.leave_type}</TableCell>
                         <TableCell>{formatDate(leave.start_date)}</TableCell>
                         <TableCell>{formatDate(leave.end_date)}</TableCell>
-                        <TableCell>{calcDays(leave.start_date, leave.end_date)} days</TableCell>
+                        <TableCell>{calcDays(leave.start_date, leave.end_date, leave.day_type)}</TableCell>
                         <TableCell className="max-w-[150px]">
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -239,7 +242,10 @@ export default function AdminLeaveRequests() {
                   <div className="space-y-1">
                     <p className="text-muted-foreground">Duration</p>
                     <p className="font-semibold">{formatDate(selectedLeave.start_date)} - {formatDate(selectedLeave.end_date)}</p>
-                    <p className="text-xs text-muted-foreground">{calcDays(selectedLeave.start_date, selectedLeave.end_date)} days</p>
+                    <p className="text-xs text-muted-foreground">
+                      {calcDays(selectedLeave.start_date, selectedLeave.end_date, selectedLeave.day_type)}
+                      {selectedLeave.day_type === 'full_day' && ' Days'}
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-muted-foreground">Status</p>

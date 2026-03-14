@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const LeaveSchema = new mongoose.Schema({
     user_id: { type: mongoose.Schema.Types.Mixed, required: true },
     leave_type: { type: String, required: true },
+    day_type: { type: String, enum: ['full_day', 'half_day'], default: 'full_day' },
     start_date: { type: Date, required: true },
     end_date: { type: Date, required: true },
     reason: { type: String, default: null },

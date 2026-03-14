@@ -1900,7 +1900,7 @@ router.get('/notifications', async (req, res) => {
 
         // Admins can see everything except their own sent notifications
         if (role === 'admin') {
-            delete query.$and[1]; // Remove the restrictive visibility for admins
+            query.$and.pop(); // Remove the restrictive visibility for admins
         }
 
         const notifications = await Notification.find(query)
