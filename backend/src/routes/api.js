@@ -749,9 +749,10 @@ router.post('/leaves', async (req, res) => {
 
         await Notification.create({
             title: `📅 New Leave Application`,
-            message: `${user?.full_name || 'An employee'} has applied for ${leave.leave_type} from ${new Date(leave.start_date).toLocaleDateString()}.`,
-            target_role: 'hr',
-            type: 'leave'
+            message: `${user?.full_name || 'An employee'} has applied for ${leave.day_type === 'half_day' ? 'Half Day' : leave.leave_type} from ${new Date(leave.start_date).toLocaleDateString()}.`,
+            target_role: user?.role === 'hr' ? 'admin' : 'hr',
+            type: 'leave',
+            created_by: leave.user_id
         });
 
         res.status(201).json(leave);

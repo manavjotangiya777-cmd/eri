@@ -39,6 +39,7 @@ export default function HRLeaveManagement() {
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [hrComment, setHrComment] = useState('');
+  const [viewedMyLeaves, setViewedMyLeaves] = useState(false);
 
   // ── My Leave Requests ──
   const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
@@ -185,11 +186,11 @@ export default function HRLeaveManagement() {
               <ListChecks className="h-4 w-4 mr-1.5" />
               Employee Leaves
             </TabsTrigger>
-            <TabsTrigger value="my" className="relative">
+            <TabsTrigger value="my" className="relative" onClick={() => setViewedMyLeaves(true)}>
               <Calendar className="h-4 w-4 mr-1.5" />
               My Leave Request
-              {myPendingCount > 0 && (
-                <span className="ml-1.5 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5 font-bold">
+              {myPendingCount > 0 && !viewedMyLeaves && (
+                <span className="absolute top-1 right-2 bg-destructive text-destructive-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
                   {myPendingCount}
                 </span>
               )}

@@ -133,7 +133,7 @@ export default function HRLayout({ children, fullWidth = false }: HRLayoutProps)
                   </Badge>
                 )}
                 {isContent && contentBadge > 0 && (
-                  <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full bg-primary hover:bg-primary">
+                  <Badge variant="destructive" className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                     {contentBadge > 9 ? '9+' : contentBadge}
                   </Badge>
                 )}
