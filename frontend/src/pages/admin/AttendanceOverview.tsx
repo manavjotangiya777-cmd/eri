@@ -5,10 +5,17 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getAllAttendance, getAllProfiles, getAbsences, generateAbsences, getSystemSettings } from '@/db/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { getAllAttendance, getAllProfiles, getAbsences, generateAbsences, getSystemSettings, updateAttendance } from '@/db/api';
 import type { Profile, SystemSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, UserX, RefreshCcw, Download, Filter } from 'lucide-react';
+import { Calendar, UserX, RefreshCcw, Download, Filter, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +43,10 @@ export default function AttendanceOverview() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
+  const [formData, setFormData] = useState({ user_id: '', date: '', clock_in: '', clock_out: '' });
+
   const { toast } = useToast();
 
   const loadData = async (from?: string, to?: string, userId?: string) => {
@@ -155,6 +166,12 @@ export default function AttendanceOverview() {
     const user = users.find(u => u.id === id || (u as any)._id?.toString() === id);
     return user?.full_name || user?.username || 'Unknown';
   };
+
+  const toTimeInput = (iso: string | null): string => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  };
+
 
   const getClockIn = (r: AttendanceRecord | null): string | null => {
     if (!r) return null;
@@ -321,6 +338,66 @@ export default function AttendanceOverview() {
 
   const totalAbsences = mergedRows.filter(r => r.kind === 'absent').length;
 
+  const handleEdit = (record: AttendanceRecord) => {
+    setEditRecord(record);
+    const inTime = getClockIn(record);
+    const outTime = getClockOut(record);
+    setFormData({
+      user_id: record.user_id?._id?.toString() || record.user_id?.toString() || record.user_id,
+      date: record.date,
+      clock_in: toTimeInput(inTime),
+      clock_out: toTimeInput(outTime),
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRecord) return;
+    try {
+      const isToday = formData.date === todayStr;
+      const userProfile = users.find(u => (u.id || (u as any)._id?.toString()) === formData.user_id);
+
+      // Request: Admin can only update if working hours for today are completed
+      if (isToday && !isShiftEnded(userProfile)) {
+        toast({ title: 'Error', description: "Cannot update attendance before the employee's working hours are completed for today.", variant: 'destructive' });
+        return;
+      }
+
+      const clockInISO = formData.clock_in ? `${formData.date}T${formData.clock_in}:00` : null;
+      const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00` : null;
+
+      const now = new Date();
+      if (clockOutISO && new Date(clockOutISO) > now) {
+        toast({ title: 'Error', description: 'Clock-out time cannot be set in the future.', variant: 'destructive' });
+        return;
+      }
+      if (clockInISO && new Date(clockInISO) > now) {
+        toast({ title: 'Error', description: 'Clock-in time cannot be set in the future.', variant: 'destructive' });
+        return;
+      }
+
+      const existing: any[] = editRecord.sessions || [];
+      const updated = existing.length > 0
+        ? existing.map((s: any, i: number) => ({
+          ...s,
+          ...(i === 0 && clockInISO ? { clockInAt: clockInISO } : {}),
+          ...(i === existing.length - 1 && clockOutISO ? { clockOutAt: clockOutISO } : {}),
+        }))
+        : [{ clockInAt: clockInISO, clockOutAt: clockOutISO, durationSeconds: 0 }];
+
+      // Also send an `admin_update_times: true` flag to tell the backend to run the recalculations
+      await updateAttendance(editRecord.id || editRecord._id, { sessions: updated, admin_update_times: true } as any);
+
+      toast({ title: 'Success', description: 'Attendance time updated accurately' });
+      setEditDialogOpen(false);
+      setEditRecord(null);
+      loadData(startDate, endDate, selectedUserId);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to update', variant: 'destructive' });
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -443,6 +520,7 @@ export default function AttendanceOverview() {
                       <TableHead className="font-bold min-w-[120px]">Break Hours</TableHead>
                       <TableHead className="font-bold min-w-[120px]">Overtime</TableHead>
                       <TableHead className="font-bold min-w-[120px]">Status</TableHead>
+                      <TableHead className="font-bold min-w-[100px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -474,6 +552,7 @@ export default function AttendanceOverview() {
                                 Absent · {row.absenceReason}
                               </Badge>
                             </TableCell>
+                            <TableCell className="text-muted-foreground">-</TableCell>
                             <TableCell className="text-muted-foreground">-</TableCell>
                           </TableRow>
                         );
@@ -530,6 +609,9 @@ export default function AttendanceOverview() {
                             )}
                           </TableCell>
                           <TableCell><StatusBadge record={record} /></TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}><Pencil className="h-4 w-4" /></Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -540,6 +622,40 @@ export default function AttendanceOverview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => { setEditDialogOpen(open); if (!open) setEditRecord(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Admin Update Attendance</DialogTitle>
+            <DialogDescription>Recalculate clock in/out times and work hours accurately.</DialogDescription>
+          </DialogHeader>
+          {editRecord && (
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Input value={getUserName(editRecord.user_id)} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input value={formatDate(editRecord.date)} disabled />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_clock_in">Clock In Time</Label>
+                <Input id="edit_clock_in" type="time" value={formData.clock_in} onChange={e => setFormData({ ...formData, clock_in: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_clock_out">Clock Out Time</Label>
+                <Input id="edit_clock_out" type="time" value={formData.clock_out} onChange={e => setFormData({ ...formData, clock_out: e.target.value })} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Update & Recalculate</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

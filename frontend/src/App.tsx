@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { RouteGuard } from '@/components/common/RouteGuard';
 import { Toaster } from '@/components/ui/toaster';
+import { DeadlineNotifier } from '@/components/common/DeadlineNotifier';
 
 const App: React.FC = () => {
   return (
@@ -31,6 +32,7 @@ const App: React.FC = () => {
               </main>
             </div>
             <Toaster />
+            <DeadlineNotifier />
           </RouteGuard>
         </SettingsProvider>
       </AuthProvider>

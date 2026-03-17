@@ -491,7 +491,17 @@ export const deleteInvoice = async (id: string) => {
 
 // Tasks
 export const getAllTasks = async () => {
-  return await fetcher('tasks', {}, 'tasks') as Task[];
+  let queryStr = '';
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      if (user.role) queryStr = `?role=${user.role}`;
+    }
+  } catch (e) {
+    console.warn('Failed to parse role for tasks:', e);
+  }
+  return await fetcher(`tasks${queryStr}`, {}, 'tasks') as Task[];
 };
 
 export const getMyTasks = async (userId: string) => {
@@ -1137,4 +1147,51 @@ export const updateCashFlow = async (id: string, payload: Partial<CashFlow>): Pr
 
 export const deleteCashFlow = async (id: string): Promise<void> => {
   await fetcher(`cashflow/${id}`, { method: 'DELETE' });
+};
+
+// --- Deadlines API ---
+export const getDeadlines = async (userId: string): Promise<any[]> => {
+  return await fetcher(`deadlines?user_id=${userId}`);
+};
+
+// --- Performance Analytics API ---
+export const calculatePerformance = async (month: string): Promise<any> => {
+  return await fetcher('performance/calculate', {
+    method: 'POST',
+    body: JSON.stringify({ month }),
+  });
+};
+
+export const getPerformanceRecords = async (month?: string, employeeId?: string): Promise<any[]> => {
+  let url = 'performance';
+  const params = new URLSearchParams();
+  if (month) params.append('month', month);
+  if (employeeId) params.append('employee_id', employeeId);
+  if (params.toString()) url += `?${params.toString()}`;
+  return await fetcher(url) as any[];
+};
+
+export const updatePerformanceRecord = async (id: string, updates: { admin_rating?: number; admin_feedback?: string }): Promise<any> => {
+  return await fetcher(`performance/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+};
+
+// --- Appreciations API ---
+export const getAppreciations = async (employeeId?: string): Promise<any[]> => {
+  let url = 'appreciations';
+  if (employeeId) url += `?employee_id=${employeeId}`;
+  return await fetcher(url) as any[];
+};
+
+export const createAppreciation = async (payload: { employee_id: string, given_by: string, title: string, message: string, badge?: string }): Promise<any> => {
+  return await fetcher('appreciations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteAppreciation = async (id: string): Promise<void> => {
+  await fetcher(`appreciations/${id}`, { method: 'DELETE' });
 };

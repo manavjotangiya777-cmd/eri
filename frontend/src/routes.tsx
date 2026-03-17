@@ -16,16 +16,18 @@ import SystemSettings from './pages/admin/SystemSettings';
 import NetworkSecurity from './pages/admin/NetworkSecurity';
 import ChatPage from './pages/admin/ChatPage';
 import ClientSupportChatPage from './pages/admin/ClientSupportChatPage';
-import AbsenceRecordPage from './pages/admin/AbsenceRecordPage';
+import AbsenceRecordPage from '@/pages/admin/AbsenceRecordPage';
 import AdminLeaveRequests from './pages/admin/AdminLeaveRequests';
 import WarningManagement from './pages/admin/WarningManagement';
 import AdminLayout from './components/layouts/AdminLayout';
 import HRLayout from './components/layouts/HRLayout';
 import BDELayout from './components/layouts/BDELayout';
 import AiAssistantPage from './pages/AiAssistantPage';
-import SalaryManagement from './pages/admin/SalaryManagement';
+import SalaryManagement from '@/pages/admin/SalaryManagement';
 import CashFlowPage from './pages/admin/CashFlow';
-import MySalary from './pages/employee/MySalary';
+import MySalary from '@/pages/employee/MySalary';
+import PerformanceAnalytics from '@/pages/admin/PerformanceAnalytics';
+import AppreciationPage from '@/pages/hr/Appreciation';
 
 import HRDashboard from './pages/hr/HRDashboard';
 import HREmployeeManagement from './pages/hr/HREmployeeManagement';
@@ -43,7 +45,8 @@ import EmployeeAttendanceReport from './pages/employee/EmployeeAttendanceReport'
 import EmployeeTasks from './pages/employee/EmployeeTasks';
 import EmployeeLeave from './pages/employee/EmployeeLeave';
 import EmployeeInfo from './pages/employee/EmployeeInfo';
-import EmployeeChat from './pages/employee/EmployeeChat';
+import EmployeeChat from '@/pages/employee/EmployeeChat';
+import MyPerformance from '@/pages/employee/MyPerformance';
 
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientTasksPage from './pages/client/ClientTasksPage';
@@ -125,6 +128,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['admin']}><AdminLeaveRequests /></ProtectedRoute>,
   },
   {
+    name: 'Performance',
+    path: '/admin/performance',
+    element: <ProtectedRoute allowedRoles={['admin']}><PerformanceAnalytics /></ProtectedRoute>,
+  },
+  {
     name: 'Settings',
     path: '/admin/settings',
     element: <ProtectedRoute allowedRoles={['admin']}><SystemSettings /></ProtectedRoute>,
@@ -158,6 +166,11 @@ const routes: RouteConfig[] = [
     name: 'Warning Management',
     path: '/admin/warnings',
     element: <ProtectedRoute allowedRoles={['admin']}><WarningManagement Layout={AdminLayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'Appreciations',
+    path: '/admin/appreciations',
+    element: <ProtectedRoute allowedRoles={['admin']}><AppreciationPage Layout={AdminLayout} /></ProtectedRoute>,
   },
   {
     path: '/admin/profile',
@@ -225,6 +238,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['hr']}><WarningManagement Layout={HRLayout} /></ProtectedRoute>,
   },
   {
+    name: 'Appreciations',
+    path: '/hr/appreciations',
+    element: <ProtectedRoute allowedRoles={['hr']}><AppreciationPage Layout={HRLayout} /></ProtectedRoute>,
+  },
+  {
     name: 'Salary Management',
     path: '/hr/salaries',
     element: <ProtectedRoute allowedRoles={['hr']}><SalaryManagement Layout={HRLayout} /></ProtectedRoute>,
@@ -264,6 +282,11 @@ const routes: RouteConfig[] = [
     name: 'My Salaries',
     path: '/employee/salaries',
     element: <ProtectedRoute allowedRoles={['employee']}><MySalary /></ProtectedRoute>,
+  },
+  {
+    name: 'My Performance',
+    path: '/employee/performance',
+    element: <ProtectedRoute allowedRoles={['employee']}><MyPerformance /></ProtectedRoute>,
   },
   {
     name: 'AI Assistant',

@@ -32,6 +32,9 @@ const FollowUp = require('../models/FollowUp');
 const Warning = require('../models/Warning');
 const Salary = require('../models/Salary');
 const CashFlow = require('../models/CashFlow');
+const EmployeeActivity = require('../models/EmployeeActivity');
+const EmployeePerformance = require('../models/EmployeePerformance');
+const Appreciation = require('../models/Appreciation');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Request Logging Middleware
@@ -50,6 +53,20 @@ const getISTTimeParts = (date = new Date()) => {
         m: parseInt(parts.find(p => p.type === 'minute').value),
         s: parseInt(parts.find(p => p.type === 'second').value)
     };
+};
+
+const trackActivity = async (user_id, field) => {
+    try {
+        if (!user_id) return;
+        const date = getISTDateString();
+        const update = { $inc: {} };
+        update.$inc[field] = 1;
+        await EmployeeActivity.findOneAndUpdate(
+            { employee_id: user_id, date },
+            update,
+            { upsert: true }
+        );
+    } catch (e) { console.error('Activity track error:', e); }
 };
 
 router.use((req, res, next) => {
@@ -199,6 +216,9 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         console.log(`Login successful: ${user.username}`);
+
+        // Track Login Performance Action
+        trackActivity(user._id, 'login_count');
 
         const commonChat = await Chat.findOne({ group_name: 'Common Group', chat_type: 'group' });
         if (commonChat) {
@@ -448,7 +468,7 @@ router.post('/attendance/break-out', ensureOfficeNetwork, async (req, res) => {
         lastBreak.durationSeconds = breakSeconds;
 
         record.totals.totalBreakSeconds += lastBreak.durationSeconds;
-        record.totals.workSeconds = record.totals.totalClockSeconds - record.totals.totalBreakSeconds;
+        record.totals.workSeconds = Math.max(0, record.totals.totalClockSeconds - record.totals.totalBreakSeconds);
 
         record.status = 'working';
         record.currentBreakOpen = false;
@@ -676,9 +696,10 @@ router.get('/dashboard_stats', async (req, res) => {
                 completedTasks = await Task.countDocuments({ client_id: { $in: cidVar }, status: 'completed' });
             }
         } else {
-            myTasks = await Task.countDocuments({ assigned_to: user_id });
-            pendingTasks = await Task.countDocuments({ assigned_to: user_id, status: { $ne: 'completed' } });
-            completedTasks = await Task.countDocuments({ assigned_to: user_id, status: 'completed' });
+            const uIdVar = [user_id, toObjectId(user_id)];
+            myTasks = await Task.countDocuments({ assigned_to: { $in: uIdVar } });
+            pendingTasks = await Task.countDocuments({ assigned_to: { $in: uIdVar }, status: { $ne: 'completed' } });
+            completedTasks = await Task.countDocuments({ assigned_to: { $in: uIdVar }, status: 'completed' });
         }
 
         res.json({
@@ -808,10 +829,129 @@ router.patch('/leaves', handleLeaveUpdate);
 router.put('/leaves/:id', handleLeaveUpdate);
 router.patch('/leaves/:id', handleLeaveUpdate);
 
+const handleAttendanceAdminUpdate = async (req, res, next) => {
+    if (!req.body.admin_update_times) return next();
+
+    try {
+        const id = req.params.id || req.query.id;
+        const record = await Attendance.findById(id).populate('user_id');
+        if (!record) return res.status(404).json({ error: 'Attendance not found' });
+
+        const updates = req.body;
+        if (updates.sessions) record.sessions = updates.sessions;
+        if (updates.breaks) record.breaks = updates.breaks;
+
+        let totalClockSeconds = 0;
+        let totalBreakSeconds = 0;
+        let isCurrentSessionOpen = false;
+        let isCurrentBreakOpen = false;
+
+        if (record.sessions) {
+            record.sessions.forEach(s => {
+                if (s.clockInAt && s.clockOutAt) {
+                    s.durationSeconds = Math.floor((new Date(s.clockOutAt) - new Date(s.clockInAt)) / 1000);
+                    totalClockSeconds += s.durationSeconds;
+                } else if (s.clockInAt) {
+                    isCurrentSessionOpen = true;
+                }
+            });
+        }
+
+        if (record.breaks) {
+            record.breaks.forEach(b => {
+                if (b.breakInAt && b.breakOutAt) {
+                    b.durationSeconds = Math.floor((new Date(b.breakOutAt) - new Date(b.breakInAt)) / 1000);
+                    totalBreakSeconds += b.durationSeconds;
+                } else if (b.breakInAt) {
+                    isCurrentBreakOpen = true;
+                }
+            });
+        }
+
+        record.currentSessionOpen = isCurrentSessionOpen;
+        record.currentBreakOpen = isCurrentBreakOpen;
+
+        if (isCurrentSessionOpen && record.sessions && record.sessions.length > 0) {
+            record.lastClockInAt = record.sessions[record.sessions.length - 1].clockInAt;
+        }
+
+        record.totals = record.totals || {};
+        record.totals.totalClockSeconds = totalClockSeconds;
+        record.totals.totalBreakSeconds = totalBreakSeconds;
+        record.totals.workSeconds = Math.max(0, totalClockSeconds - totalBreakSeconds);
+
+        const settings = await SystemSettings.findOne();
+        const firstClockIn = record.sessions && record.sessions.length > 0 ? record.sessions[0].clockInAt : null;
+
+        if (firstClockIn) {
+            const shiftType = record.user_id?.shift_type || 'full_day';
+            const startTimeStr = shiftType === 'half_day' ? (settings?.half_day_start_time || '09:00') : (settings?.work_start_time || '09:00');
+            const threshold = shiftType === 'half_day' ? (settings?.half_day_late_threshold ?? 15) : (settings?.late_threshold_minutes ?? 15);
+
+            const { h: inH, m: inM } = getISTTimeParts(new Date(firstClockIn));
+            const [targetH, targetM] = startTimeStr.split(':').map(Number);
+
+            const nowTotalMinutes = inH * 60 + inM;
+            const targetTotalMinutes = targetH * 60 + targetM;
+            const limitTotalMinutes = targetTotalMinutes + threshold;
+
+            if (nowTotalMinutes > limitTotalMinutes) {
+                record.is_late = true;
+                record.late_minutes = nowTotalMinutes - targetTotalMinutes;
+            } else {
+                record.is_late = false;
+                record.late_minutes = 0;
+            }
+        }
+
+        const shiftType = record.user_id?.shift_type || 'full_day';
+        const overtimeEnabled = settings?.overtime_enabled !== false;
+        const oThresholdHours = shiftType === 'half_day'
+            ? (settings?.half_day_overtime_threshold_hours ?? 4)
+            : (settings?.overtime_threshold_hours ?? 8);
+        const thresholdSeconds = oThresholdHours * 3600;
+
+        if (overtimeEnabled) {
+            record.totals.overtimeSeconds = Math.max(0, record.totals.workSeconds - thresholdSeconds);
+        } else {
+            record.totals.overtimeSeconds = 0;
+        }
+
+        if (record.totals.workSeconds < thresholdSeconds) {
+            record.is_early_leave = true;
+            record.early_leave_minutes = Math.round((thresholdSeconds - record.totals.workSeconds) / 60);
+        } else {
+            record.is_early_leave = false;
+            record.early_leave_minutes = 0;
+        }
+
+        const uid = record.user_id._id || record.user_id;
+        record.user_id = uid;
+
+        await record.save();
+
+        const newRecord = await Attendance.findById(record._id).populate('user_id');
+        const o = newRecord.toObject({ virtuals: true });
+        o.id = o._id.toString();
+
+        return res.json(o);
+    } catch (err) {
+        return res.status(400).json({ error: err.message });
+    }
+};
+
+router.put('/attendance', handleAttendanceAdminUpdate);
+router.patch('/attendance', handleAttendanceAdminUpdate);
+router.put('/attendance/:id', handleAttendanceAdminUpdate);
+router.patch('/attendance/:id', handleAttendanceAdminUpdate);
+
 router.put('/tasks', handleTaskUpdate);
 router.patch('/tasks', handleTaskUpdate);
 router.put('/tasks/:id', handleTaskUpdate);
 router.patch('/tasks/:id', handleTaskUpdate);
+router.post('/tasks', factory.createOne(Task));
+router.delete('/tasks', factory.deleteOne(Task));
+router.delete('/tasks/:id', factory.deleteOne(Task));
 
 // --- Standard CRUD Routes --- 
 defineStandardRoutes('/profiles', Profile, 'designation client');
@@ -827,13 +967,13 @@ router.get('/tasks', async (req, res) => {
         if (role !== 'admin' && role !== 'hr') {
             const effectiveUserId = user_id || assigned_to;
             if (effectiveUserId) {
-                query.assigned_to = toObjectId(effectiveUserId);
+                query.assigned_to = { $in: [effectiveUserId, toObjectId(effectiveUserId)] };
             } else {
                 // If no user_id provided but they aren't admin/hr, show nothing or return error
                 return res.json([]);
             }
         } else if (assigned_to) {
-            query.assigned_to = toObjectId(assigned_to);
+            query.assigned_to = { $in: [assigned_to, toObjectId(assigned_to)] };
         }
 
         const tasks = await Task.find(query)
@@ -1802,6 +1942,19 @@ router.post('/ai-assistant', async (req, res) => {
             return res.status(400).json({ error: 'Invalid contents format' });
         }
 
+        // Track AI Usage Performance Action
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            try {
+                const token = authHeader.split(' ')[1];
+                const jwt = require('jsonwebtoken');
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                if (decoded && decoded.id) {
+                    trackActivity(decoded.id, 'ai_usage_count');
+                }
+            } catch (e) { /* ignore tracking error */ }
+        }
+
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
             fs.appendFileSync(logFile, `[${new Date().toISOString()}] API Key missing or default\n`);
@@ -2213,6 +2366,67 @@ router.post('/warnings', async (req, res) => {
 router.delete('/warnings/:id', async (req, res) => {
     try {
         await Warning.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Appreciations Routes ---
+router.get('/appreciations', async (req, res) => {
+    try {
+        const { employee_id } = req.query;
+        let query = {};
+        if (employee_id) query.employee_id = toObjectId(employee_id);
+
+        const appreciations = await Appreciation.find(query)
+            .populate('employee_id', 'full_name username role avatar_url department')
+            .populate('given_by', 'full_name username role avatar_url')
+            .sort({ created_at: -1 });
+
+        res.json(appreciations);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/appreciations', async (req, res) => {
+    try {
+        const { employee_id, given_by, title, message, badge } = req.body;
+        if (!employee_id || !given_by || !title || !message) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        const app = new Appreciation({
+            employee_id: toObjectId(employee_id),
+            given_by: toObjectId(given_by),
+            title,
+            message,
+            badge: badge || 'Star Performer'
+        });
+
+        await app.save();
+
+        // Send a notification to the appreciated employee!
+        const Notification = require('../models/Notification');
+        await Notification.create({
+            title: `🏆 Appreciation: ${title}`,
+            message: `You received an appreciation: "${message}"`,
+            target_user: toObjectId(employee_id),
+            target_role: 'none',
+            type: 'system',
+            created_by: toObjectId(given_by)
+        });
+
+        res.status(201).json(app);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/appreciations/:id', async (req, res) => {
+    try {
+        await Appreciation.findByIdAndDelete(req.params.id);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -2657,6 +2871,274 @@ router.delete('/cashflow/:id', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// --- Deadlines/Reminders API ---
+router.get('/deadlines', async (req, res) => {
+    try {
+        const { user_id } = req.query;
+        if (!user_id) return res.status(400).json({ error: 'user_id is required' });
+
+        const searchObjId = toObjectId(user_id);
+
+        // 1. Get Tasks with deadlines
+        const tasks = await Task.find({
+            assigned_to: { $in: [user_id, searchObjId, user_id.toString()] },
+            status: { $nin: ['completed', 'cancelled'] },
+            deadline: { $ne: null }
+        }).select('task_id title deadline status priority');
+
+        // 2. Get Follow-Ups with deadlines or next_action_date
+        const followups = await FollowUp.find({
+            assigned_to: { $in: [user_id, searchObjId, user_id.toString()] },
+            status: { $nin: ['completed'] },
+            $or: [{ deadline: { $ne: null } }, { next_action_date: { $ne: null } }]
+        }).select('followup_id title deadline next_action_date status task_type');
+
+        // Map them to a unified format
+        const unified = [];
+        tasks.forEach(t => {
+            unified.push({
+                type: 'task',
+                id: t._id.toString(),
+                display_id: t.task_id,
+                title: t.title,
+                deadline: t.deadline,
+                status: t.status,
+                priority: t.priority
+            });
+        });
+
+        followups.forEach(f => {
+            if (f.deadline) {
+                unified.push({
+                    type: 'followup_deadline',
+                    id: f._id.toString() + '_d',
+                    original_id: f._id.toString(),
+                    display_id: f.followup_id,
+                    title: `[FollowUp] ${f.title}`,
+                    deadline: f.deadline,
+                    status: f.status
+                });
+            }
+            if (f.next_action_date) {
+                unified.push({
+                    type: 'followup_reminder',
+                    id: f._id.toString() + '_n',
+                    original_id: f._id.toString(),
+                    display_id: f.followup_id,
+                    title: `[Reminder] ${f.title}`,
+                    deadline: f.next_action_date,
+                    status: f.status
+                });
+            }
+        });
+
+        // Filter out dates that are too far in the future? 
+        // We'll let the frontend decide if it wants to show them, but here we return all pending.
+        res.json(unified.sort((a, b) => new Date(a.deadline) - new Date(b.deadline)));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Performance Analytics API ---
+// Trigger calculation for a month
+router.post('/performance/calculate', async (req, res) => {
+    try {
+        const { month } = req.body; // e.g. "2026-03"
+        if (!month) return res.status(400).json({ error: "Month required (YYYY-MM)" });
+
+        const [yStr, mStr] = month.split('-');
+        const year = parseInt(yStr);
+        const m = parseInt(mStr) - 1; // 0-indexed
+
+        const firstDay = new Date(year, m, 1);
+        const lastDay = new Date(year, m + 1, 0);
+
+        let totalWorkingDays = 0;
+        for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+            if (d.getDay() !== 0) totalWorkingDays++;
+        }
+
+        const employees = await Profile.find({ role: { $nin: ['admin', 'client'] }, is_active: true });
+
+        for (const emp of employees) {
+            // 1. Attendance Score
+            const attendances = await Attendance.find({
+                user_id: emp._id,
+                date: { $regex: `^${month}` }
+            });
+
+            let presentDays = 0;
+            let lateEntries = 0;
+            let halfDays = 0;
+
+            attendances.forEach(a => {
+                if (a.status !== 'absent') presentDays++;
+                if (a.is_late) lateEntries++;
+                if (a.is_early_leave || a.user_id?.shift_type === 'half_day') halfDays++;
+            });
+
+            let attendanceRatio = totalWorkingDays > 0 ? presentDays / totalWorkingDays : 0;
+            if (attendanceRatio > 1) attendanceRatio = 1;
+            let attScore = (attendanceRatio * 20) - (lateEntries * 0.5);
+            if (attScore < 0) attScore = 0;
+            if (attScore > 20) attScore = 20;
+
+            // 2. Task Completion Score
+            const tasks = await Task.find({ assigned_to: { $in: [emp._id, emp._id.toString()] } });
+            const matchedTasks = tasks.filter(t => {
+                if (t.deadline) return new Date(t.deadline).toISOString().substring(0, 7) === month;
+                if (t.created_at) return new Date(t.created_at).toISOString().substring(0, 7) === month;
+                return false;
+            });
+
+            const totalTasks = matchedTasks.length;
+            const completedTasks = matchedTasks.filter(t => t.status === 'completed').length;
+            // Accurate Logic: If no tasks assigned, they don't get the "completion" marks. 
+            // This prevents inactive users from getting higher scores than hard working ones.
+            let taskScore = totalTasks > 0 ? (completedTasks / totalTasks) * 25 : 0;
+
+            // 3. Task Quality Score (Wait for admin input)
+            let existingPerf = await EmployeePerformance.findOne({ employee_id: emp._id, month });
+            let adminRating = existingPerf ? existingPerf.admin_rating : 0;
+            // Normalized quality score: if no tasks, quality is 0.
+            let qualityScore = totalTasks > 0 ? (adminRating / 5) * 15 : 0;
+
+            // 4. Activity Engagement Score
+            const activities = await EmployeeActivity.find({ employee_id: emp._id, date: { $regex: `^${month}` } });
+            const totalLogins = activities.reduce((acc, curr) => acc + curr.login_count, 0);
+            const totalAi = activities.reduce((acc, curr) => acc + curr.ai_usage_count, 0);
+            let actScore = ((Math.min(20, totalLogins) / 20) * 5) + ((Math.min(10, totalAi) / 10) * 5);
+
+            // 5. Leave Management Score
+            const leaves = await Leave.find({
+                user_id: emp._id,
+                start_date: { $gte: firstDay, $lte: lastDay }
+            });
+            const totalLeaves = leaves.length;
+            const unplannedLeaves = leaves.filter(l => l.status !== 'approved').length;
+            let leaveScore = Math.max(0, 10 - (unplannedLeaves * 2));
+
+            // 6. Communication Score
+            const messages = await Message.find({
+                sender_id: emp._id,
+                created_at: { $gte: firstDay, $lte: lastDay }
+            });
+            // Lowered threshold: 20 messages for full communication marks (10%)
+            let commScore = (Math.min(20, messages.length) / 20) * 10;
+            // If they have tasks but no messages, they lose score. If no tasks/msgs, they get 0.
+
+            // 7. Follow-up Score (10%)
+            const followups = await FollowUp.find({ assigned_to: { $in: [emp._id, emp._id.toString()] } });
+            const matchedFollowups = followups.filter(f => {
+                const fDate = f.deadline || f.created_at || f.updated_at;
+                return fDate && new Date(fDate).toISOString().substring(0, 7) === month;
+            });
+            const totalFollowups = matchedFollowups.length;
+            const completedFollowups = matchedFollowups.filter(f => f.status === 'completed').length;
+            let followupScore = totalFollowups > 0 ? (completedFollowups / totalFollowups) * 10 : 0;
+
+            // 8. Warning Penalty (-5 each)
+            const warnings = await Warning.find({
+                user_id: emp._id,
+                created_at: { $gte: firstDay, $lte: lastDay }
+            });
+            let warningPenalty = warnings.length * 5;
+
+            // 9. Appreciation Bonus (+2 each)
+            const appreciations = await Appreciation.find({
+                employee_id: emp._id,
+                created_at: { $gte: firstDay, $lte: lastDay }
+            });
+            let appreciationBonus = appreciations.length * 2;
+
+            const final_score = Math.round(
+                attScore + taskScore + qualityScore + actScore + leaveScore + commScore + followupScore - warningPenalty + appreciationBonus
+            );
+
+            let grade = 'Needs Improvement';
+            if (final_score >= 90) grade = 'Excellent';
+            else if (final_score >= 75) grade = 'Good';
+            else if (final_score >= 50) grade = 'Average';
+
+            const metadata = {
+                presentDays, totalWorkingDays, lateEntries,
+                totalTasks, completedTasks,
+                totalLogins, totalAi, totalLeaves, messagesCount: messages.length,
+                totalFollowups, completedFollowups,
+                warningsCount: warnings.length,
+                appreciationsCount: appreciations.length
+            };
+
+            await EmployeePerformance.findOneAndUpdate(
+                { employee_id: emp._id, month },
+                {
+                    attendance_score: attScore,
+                    task_completion_score: taskScore,
+                    task_quality_score: qualityScore,
+                    activity_engagement_score: actScore,
+                    leave_management_score: leaveScore,
+                    communication_score: commScore,
+                    followup_score: followupScore,
+                    warning_penalty: warningPenalty,
+                    appreciation_bonus: appreciationBonus,
+                    final_score, grade, metadata
+                },
+                { upsert: true }
+            );
+        }
+        res.json({ success: true, message: `Performance metrics calculated for ${month}` });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/performance', async (req, res) => {
+    try {
+        const { month, employee_id } = req.query;
+        let query = {};
+        if (month) query.month = month;
+        if (employee_id) query.employee_id = toObjectId(employee_id);
+
+        const records = await EmployeePerformance.find(query).populate('employee_id', 'full_name username role department email active_status profile_picture');
+        res.json(records);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch('/performance/:id', async (req, res) => {
+    try {
+        let record = await EmployeePerformance.findById(req.params.id);
+        if (!record) return res.status(404).json({ error: 'Not found' });
+
+        if (req.body.admin_rating !== undefined) {
+            record.admin_rating = req.body.admin_rating;
+            record.task_quality_score = (record.admin_rating / 5) * 15;
+        }
+        if (req.body.admin_feedback !== undefined) {
+            record.admin_feedback = req.body.admin_feedback;
+        }
+
+        record.final_score = Math.round(
+            record.attendance_score +
+            record.task_completion_score +
+            record.task_quality_score +
+            record.activity_engagement_score +
+            record.leave_management_score +
+            record.communication_score +
+            (record.followup_score || 0) -
+            (record.warning_penalty || 0) +
+            (record.appreciation_bonus || 0)
+        );
+        let grade = 'Needs Improvement';
+        if (record.final_score >= 90) grade = 'Excellent';
+        else if (record.final_score >= 75) grade = 'Good';
+        else if (record.final_score >= 50) grade = 'Average';
+        record.grade = grade;
+
+        await record.save();
+        record = await EmployeePerformance.findById(record._id).populate('employee_id');
+        res.json(record);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;

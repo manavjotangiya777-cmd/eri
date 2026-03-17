@@ -29,6 +29,7 @@ import {
   Sparkles,
   IndianRupee,
   HardDrive,
+  Award,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -48,6 +49,7 @@ const employeeNavItems = [
   { icon: Info, label: 'Information', path: '/employee/info' },
   { icon: MessageSquare, label: 'Chat', path: '/employee/chat' },
   { icon: IndianRupee, label: 'My Salary', path: '/employee/salaries' },
+  { icon: Award, label: 'My Performance', path: '/employee/performance' },
   { icon: Sparkles, label: 'AI Assistant', path: '/employee/ai-assistant' },
 ];
 

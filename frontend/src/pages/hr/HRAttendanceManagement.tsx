@@ -14,10 +14,10 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { getAllAttendance, getAllProfiles, updateAttendance, createAttendance, deleteAttendance, getAbsences, getSystemSettings } from '@/db/api';
+import { getAllAttendance, getAllProfiles, createAttendance, deleteAttendance, getAbsences, getSystemSettings } from '@/db/api';
 import type { Profile, SystemSettings } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Trash2, Plus, UserX } from 'lucide-react';
+import { Plus, Trash2, UserX, Filter, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AttendanceRecord = any;
@@ -32,21 +32,27 @@ export default function HRAttendanceManagement() {
   const [absences, setAbsences] = useState<any[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
+
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
+
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({ user_id: '', date: '', clock_in: '', clock_out: '' });
 
-  const loadData = async () => {
+  const loadData = async (from?: string, to?: string, userId?: string) => {
     setLoading(true);
+    const effectiveUserId = userId === undefined ? selectedUserId : userId;
+    const filterUserId = effectiveUserId === 'all' ? undefined : effectiveUserId;
+
     try {
       const [attendanceData, usersData, absenceData, settingsData] = await Promise.all([
-        getAllAttendance(500),
+        getAllAttendance(500, from || startDate || undefined, to || endDate || undefined, filterUserId),
         getAllProfiles(),
-        getAbsences(),
+        getAbsences({ from: from || startDate || undefined, to: to || endDate || undefined, user_id: filterUserId }),
         getSystemSettings(),
       ]);
 
@@ -70,6 +76,13 @@ export default function HRAttendanceManagement() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const handleClearFilter = () => {
+    setStartDate('');
+    setEndDate('');
+    setSelectedUserId('all');
+    loadData('', '', 'all');
+  };
 
   // ── Attendance key set for quick lookup ──────────────────────────
   const attendanceKeys = new Set(
@@ -141,6 +154,53 @@ export default function HRAttendanceManagement() {
     return db.localeCompare(da); // newest first
   });
 
+  const exportToExcel = () => {
+    try {
+      const headers = ['User', 'Date', 'Shift', 'Clock In', 'Clock Out', 'Work Hours', 'Break Hours', 'Status'];
+      const dataRows = mergedRows.map(row => {
+        if (row.kind === 'attendance') {
+          const r = row.record;
+          const user = getUserName(r.user_id);
+          const shift = users.find(u => (u.id || (u as any)._id) === (r.user_id?._id || r.user_id))?.shift_type === 'half_day' ? 'Half Day' : 'Full Day';
+          return [
+            user,
+            r.date,
+            shift,
+            getClockIn(r) ? new Date(getClockIn(r)!).toLocaleTimeString() : '-',
+            getClockOut(r) ? new Date(getClockOut(r)!)?.toLocaleTimeString() : '-',
+            formatWorkHours(r),
+            formatBreakHours(r),
+            r.is_late ? `Late (${r.late_minutes}m)` : 'On Time'
+          ];
+        } else {
+          return [
+            row.userName,
+            row.date,
+            '-',
+            '-',
+            '-',
+            '-',
+            '-',
+            `Absent: ${row.absenceReason}`
+          ];
+        }
+      });
+
+      const csvContent = [headers, ...dataRows].map(e => e.map(v => `"${v}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `HR_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to export data' });
+    }
+  };
+
   // ── Helpers ──────────────────────────────────────────────────────
   const getClockIn = (r: AttendanceRecord): string | null =>
     r.sessions?.length > 0 ? r.sessions[0].clockInAt || null : r.clock_in || null;
@@ -208,10 +268,6 @@ export default function HRAttendanceManagement() {
     return user?.full_name || user?.username || 'Unknown';
   };
 
-  const toTimeInput = (iso: string | null): string => {
-    if (!iso) return '';
-    return new Date(iso).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-  };
 
   // ── Status Badge ──────────────────────────────────────────────────
   const StatusBadge = ({ record }: { record: AttendanceRecord }) => {
@@ -229,45 +285,13 @@ export default function HRAttendanceManagement() {
   };
 
   // ── Handlers ─────────────────────────────────────────────────────
-  const handleEdit = (record: AttendanceRecord) => {
-    setEditRecord(record);
-    setFormData({
-      user_id: record.user_id?._id?.toString() || record.user_id?.toString() || record.user_id,
-      date: record.date,
-      clock_in: toTimeInput(getClockIn(record)),
-      clock_out: toTimeInput(getClockOut(record)),
-    });
-    setEditDialogOpen(true);
-  };
+
 
   const handleAdd = () => {
     setFormData({ user_id: '', date: new Date().toISOString().split('T')[0], clock_in: '', clock_out: '' });
     setAddDialogOpen(true);
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editRecord) return;
-    try {
-      const clockInISO = formData.clock_in ? `${formData.date}T${formData.clock_in}:00` : null;
-      const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00` : null;
-      const existing: any[] = editRecord.sessions || [];
-      const updated = existing.length > 0
-        ? existing.map((s: any, i: number) => ({
-          ...s,
-          ...(i === 0 && clockInISO ? { clockInAt: clockInISO } : {}),
-          ...(i === existing.length - 1 && clockOutISO ? { clockOutAt: clockOutISO } : {}),
-        }))
-        : [{ clockInAt: clockInISO, clockOutAt: clockOutISO, durationSeconds: 0 }];
-      await updateAttendance(editRecord.id || editRecord._id, { sessions: updated } as any);
-      toast({ title: 'Success', description: 'Attendance updated' });
-      setEditDialogOpen(false);
-      setEditRecord(null);
-      loadData();
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.message || 'Failed to update', variant: 'destructive' });
-    }
-  };
 
   const handleSaveAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -276,8 +300,27 @@ export default function HRAttendanceManagement() {
       return;
     }
     try {
+      const isToday = formData.date === todayStr;
+      const userProfile = users.find(u => (u.id || (u as any)._id?.toString()) === formData.user_id);
+
+      if (isToday && !isShiftEnded(userProfile)) {
+        toast({ title: 'Error', description: "Cannot add attendance before the employee's working hours are completed for today.", variant: 'destructive' });
+        return;
+      }
+
       const clockInISO = `${formData.date}T${formData.clock_in}:00`;
       const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00` : null;
+
+      const now = new Date();
+      if (clockOutISO && new Date(clockOutISO) > now) {
+        toast({ title: 'Error', description: 'Clock-out time cannot be set in the future.', variant: 'destructive' });
+        return;
+      }
+      if (clockInISO && new Date(clockInISO) > now) {
+        toast({ title: 'Error', description: 'Clock-in time cannot be set in the future.', variant: 'destructive' });
+        return;
+      }
+
       await createAttendance({
         user_id: formData.user_id, date: formData.date,
         sessions: [{ clockInAt: clockInISO, clockOutAt: clockOutISO, durationSeconds: 0 }],
@@ -315,6 +358,49 @@ export default function HRAttendanceManagement() {
           </div>
           <Button onClick={handleAdd}><Plus className="h-4 w-4 mr-2" />Add Record</Button>
         </div>
+
+        {/* Filters */}
+        <Card className="border-primary/10">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row items-end gap-4">
+              <div className="grid gap-2 flex-1 w-full">
+                <Label htmlFor="start_date">Start Date</Label>
+                <Input id="start_date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="grid gap-2 flex-1 w-full">
+                <Label htmlFor="end_date">End Date</Label>
+                <Input id="end_date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+              <div className="grid gap-2 flex-1 w-full">
+                <Label htmlFor="user_id_select text-nowrap">Employee</Label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Employees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Employees</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || user.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 w-full md:w-auto">
+                <Button variant="default" onClick={() => loadData()} disabled={loading} className="gap-2 flex-1 md:flex-none">
+                  <Filter className="h-4 w-4" /> Filter
+                </Button>
+                <Button variant="outline" onClick={handleClearFilter} disabled={loading}>
+                  Clear
+                </Button>
+                <Button variant="secondary" onClick={exportToExcel} disabled={loading} className="gap-2 flex-1 md:flex-none">
+                  <Download className="h-4 w-4" /> Export CSV
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-5">
@@ -454,7 +540,6 @@ export default function HRAttendanceManagement() {
                           <TableCell><StatusBadge record={record} /></TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}><Pencil className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="sm" onClick={() => handleDelete(record.id || record._id)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
@@ -468,39 +553,7 @@ export default function HRAttendanceManagement() {
           </CardContent>
         </Card>
 
-        {/* Edit Dialog */}
-        <Dialog open={editDialogOpen} onOpenChange={(open) => { setEditDialogOpen(open); if (!open) setEditRecord(null); }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Attendance Record</DialogTitle>
-              <DialogDescription>Update clock in/out times</DialogDescription>
-            </DialogHeader>
-            {editRecord && (
-              <form onSubmit={handleSaveEdit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Employee</Label>
-                  <Input value={getUserName(editRecord.user_id)} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input value={formatDate(formData.date)} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit_clock_in">Clock In Time</Label>
-                  <Input id="edit_clock_in" type="time" value={formData.clock_in} onChange={e => setFormData({ ...formData, clock_in: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit_clock_out">Clock Out Time</Label>
-                  <Input id="edit_clock_out" type="time" value={formData.clock_out} onChange={e => setFormData({ ...formData, clock_out: e.target.value })} />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit">Save Changes</Button>
-                </div>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
+
 
         {/* Add Dialog */}
         <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) setFormData({ user_id: '', date: '', clock_in: '', clock_out: '' }); }}>
