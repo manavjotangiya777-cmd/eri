@@ -54,6 +54,7 @@ import ClientBillingPage from './pages/client/ClientBillingPage';
 import ClientChatPage from './pages/client/ClientChatPage';
 import ClientDocumentsPage from './pages/client/ClientDocumentsPage';
 import ProfilePage from './pages/ProfilePage';
+import WeeklyPlan from './pages/common/WeeklyPlan';
 
 interface RouteConfig {
   name?: string;
@@ -173,6 +174,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['admin']}><AppreciationPage Layout={AdminLayout} /></ProtectedRoute>,
   },
   {
+    name: 'Weekly Plan',
+    path: '/admin/weekly-plan',
+    element: <ProtectedRoute allowedRoles={['admin']}><WeeklyPlan /></ProtectedRoute>,
+  },
+  {
     path: '/admin/profile',
     element: <ProtectedRoute allowedRoles={['admin']}><ProfilePage /></ProtectedRoute>,
   },
@@ -243,6 +249,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['hr']}><AppreciationPage Layout={HRLayout} /></ProtectedRoute>,
   },
   {
+    name: 'Weekly Plan',
+    path: '/hr/weekly-plan',
+    element: <ProtectedRoute allowedRoles={['hr']}><WeeklyPlan /></ProtectedRoute>,
+  },
+  {
     name: 'Salary Management',
     path: '/hr/salaries',
     element: <ProtectedRoute allowedRoles={['hr']}><SalaryManagement Layout={HRLayout} /></ProtectedRoute>,
@@ -287,6 +298,11 @@ const routes: RouteConfig[] = [
     name: 'My Performance',
     path: '/employee/performance',
     element: <ProtectedRoute allowedRoles={['employee']}><MyPerformance /></ProtectedRoute>,
+  },
+  {
+    name: 'Weekly Plan',
+    path: '/employee/weekly-plan',
+    element: <ProtectedRoute allowedRoles={['employee']}><WeeklyPlan /></ProtectedRoute>,
   },
   {
     name: 'AI Assistant',

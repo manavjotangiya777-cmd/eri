@@ -189,6 +189,7 @@ export interface Task {
   priority: TaskPriority;
   status: TaskStatus;
   start_date: string | null;
+  planned_date: string | null;
   deadline: string | null;
   completion_date: string | null;
   estimated_time: string | null;
@@ -201,6 +202,7 @@ export interface Task {
   work_updates: TaskWorkUpdate[];
   review_notes: string | null;
   total_time_spent: number; // in seconds
+  assigned_to_name?: string;
   created_at: string;
   updated_at: string;
 }

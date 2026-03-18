@@ -538,6 +538,22 @@ export const deleteTask = async (id: string) => {
   await fetcher(`tasks?id=${id}`, { method: 'DELETE' }, 'tasks');
 };
 
+export const getTasks = async (filters: any = {}) => {
+  const params = new URLSearchParams();
+  Object.keys(filters).forEach(key => {
+    if (filters[key]) params.append(key, filters[key]);
+  });
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    const user = JSON.parse(userStr);
+    if (user.role) params.append('role', user.role);
+    if (!filters.user_id && user.id) params.append('user_id', user.id);
+  }
+  const queryStr = params.toString() ? `?${params.toString()}` : '';
+  return await fetcher(`tasks${queryStr}`, {}, 'tasks') as Task[];
+};
+
+
 // Attendance
 export const getTodayAttendance = async (userId: string) => {
   return await fetcher(`attendance/today?user_id=${userId}`, {}, 'attendance') as Attendance | null;

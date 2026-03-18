@@ -1265,7 +1265,13 @@ router.get('/invoices/:id/download', async (req, res) => {
 });
 
 defineStandardRoutes('/invoices', Invoice);
-defineStandardRoutes('/task_time_logs', TaskTimeLog);
+// task_time_logs standard (no :id route – custom /active must take priority)
+router.route('/task_time_logs')
+    .get(factory.getAll(TaskTimeLog))
+    .post(factory.createOne(TaskTimeLog))
+    .put(factory.updateOne(TaskTimeLog))
+    .patch(factory.updateOne(TaskTimeLog))
+    .delete(factory.deleteOne(TaskTimeLog));
 defineStandardRoutes('/client_notes', ClientNote);
 defineStandardRoutes('/allowed_networks', AllowedNetwork);
 

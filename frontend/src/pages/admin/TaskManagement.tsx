@@ -52,10 +52,11 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: strin
 };
 
 type FormData = Partial<Task> & {
-  requirements_text?: string; // newline-separated for textarea
+  requirements_text?: string;
   new_attachment_name?: string;
-  new_attachment_url?: string;
+  new_attachment_file?: File | null;
   new_attachment_type?: 'file' | 'link';
+  uploading?: boolean;
 };
 
 export default function TaskManagement() {
@@ -83,7 +84,8 @@ export default function TaskManagement() {
     requirements_text: '',
     attachments: [],
     review_notes: '',
-    new_attachment_name: '', new_attachment_url: '', new_attachment_type: 'link',
+    new_attachment_name: '', new_attachment_file: null, new_attachment_type: 'file',
+    uploading: false,
   };
 
   const [formData, setFormData] = useState<FormData>(emptyForm);
@@ -120,7 +122,7 @@ export default function TaskManagement() {
       deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 10) : '',
       completion_date: task.completion_date ? new Date(task.completion_date).toISOString().slice(0, 10) : '',
       requirements_text: (task.requirements || []).join('\n'),
-      new_attachment_name: '', new_attachment_url: '', new_attachment_type: 'link',
+      new_attachment_name: '', new_attachment_file: null, new_attachment_type: 'file',
     });
     setDialogOpen(true);
   };
@@ -183,19 +185,42 @@ export default function TaskManagement() {
     }
   };
 
-  const handleAddAttachment = () => {
-    if (!formData.new_attachment_name?.trim() || !formData.new_attachment_url?.trim()) return;
-    const newAtt: TaskAttachment = {
-      name: formData.new_attachment_name.trim(),
-      url: formData.new_attachment_url.trim(),
-      type: formData.new_attachment_type || 'link',
-    };
-    setFormData(prev => ({
-      ...prev,
-      attachments: [...(prev.attachments || []), newAtt],
-      new_attachment_name: '',
-      new_attachment_url: '',
-    }));
+  const handleAddAttachment = async () => {
+    if (formData.new_attachment_type === 'file') {
+      if (!formData.new_attachment_file) return;
+      setFormData(prev => ({ ...prev, uploading: true }));
+      try {
+        const fileData = new FormData();
+        fileData.append('file', formData.new_attachment_file);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/upload`, {
+          method: 'POST',
+          body: fileData,
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const result = await response.json();
+        if (result.success) {
+          const newAtt: TaskAttachment = {
+            name: formData.new_attachment_name || formData.new_attachment_file.name,
+            url: result.url,
+            type: 'file',
+          };
+          setFormData(prev => ({
+            ...prev,
+            attachments: [...(prev.attachments || []), newAtt],
+            new_attachment_name: '',
+            new_attachment_file: null,
+            uploading: false
+          }));
+        }
+      } catch (err) {
+        toast({ title: 'Upload Failed', description: 'Could not upload file.', variant: 'destructive' });
+        setFormData(prev => ({ ...prev, uploading: false }));
+      }
+    } else {
+      // Logic for links could go here if needed, but the user asked for file upload specifically
+    }
   };
 
   const handleRemoveAttachment = (idx: number) => {
@@ -575,21 +600,31 @@ export default function TaskManagement() {
                   {/* TAB 3: Attachments */}
                   <TabsContent value="attachments" className="space-y-5 mt-0">
                     <div className="space-y-3">
-                      <Label className="font-semibold">Attachments / Links</Label>
-                      <div className="grid grid-cols-1 gap-3 p-4 border rounded-xl bg-slate-50">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input placeholder="Name (e.g. Figma Link)" value={formData.new_attachment_name || ''} onChange={e => setFormData({ ...formData, new_attachment_name: e.target.value })} />
-                          <Select value={formData.new_attachment_type || 'link'} onValueChange={v => setFormData({ ...formData, new_attachment_type: v as any })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="link">🔗 Link</SelectItem>
-                              <SelectItem value="file">📄 File URL</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      <Label className="font-semibold">Attachments / Assets</Label>
+                      <div className="grid grid-cols-1 gap-4 p-5 border rounded-2xl bg-slate-50 shadow-inner">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex-1 space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">File Display Name</Label>
+                            <Input placeholder="e.g. Project Assets" value={formData.new_attachment_name || ''} onChange={e => setFormData({ ...formData, new_attachment_name: e.target.value })} className="h-10 rounded-xl" />
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Input placeholder="URL or Link" value={formData.new_attachment_url || ''} onChange={e => setFormData({ ...formData, new_attachment_url: e.target.value })} className="flex-1" />
-                          <Button type="button" onClick={handleAddAttachment} variant="outline" size="sm">Add</Button>
+                        <div className="flex gap-3 items-end">
+                          <div className="flex-1 space-y-1.5 min-w-0">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Choose File</Label>
+                            <Input
+                              type="file"
+                              onChange={e => setFormData({ ...formData, new_attachment_file: e.target.files?.[0] || null })}
+                              className="h-10 bg-white rounded-xl border-dashed border-2 cursor-pointer pt-1.5 px-3"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={handleAddAttachment}
+                            disabled={formData.uploading || !formData.new_attachment_file}
+                            className={cn("h-10 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg", formData.uploading ? "bg-slate-400" : "bg-primary shadow-primary/20")}
+                          >
+                            {formData.uploading ? '...' : 'Upload'}
+                          </Button>
                         </div>
                       </div>
 
@@ -717,37 +752,46 @@ export default function TaskManagement() {
                       </div>
                     )}
 
-                    {/* Work Updates */}
-                    <div>
-                      <h3 className="font-bold text-sm mb-3 uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <MessageSquarePlus className="h-3.5 w-3.5" /> Work Updates ({(viewTask.work_updates || []).length})
-                      </h3>
-                      <div className="space-y-3 mb-4">
-                        {(viewTask.work_updates || []).length === 0 && (
-                          <p className="text-sm text-muted-foreground italic py-3">No updates yet.</p>
-                        )}
-                        {(viewTask.work_updates || []).map((wu, i) => (
-                          <div key={i} className="p-3 bg-slate-50 rounded-xl border-l-4 border-primary/40">
-                            <p className="text-sm font-medium">{wu.text}</p>
-                            <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                              <span>{getUserName(wu.updated_by || null)}</span>
-                              <span>•</span>
-                              <span>{wu.updated_at ? new Date(wu.updated_at).toLocaleString() : ''}</span>
-                            </div>
-                          </div>
-                        ))}
+                    {/* Work Updates Section (Dark Theme) */}
+                    <div className="bg-slate-900 rounded-[2rem] p-8 text-white shadow-2xl overflow-hidden relative group">
+                      <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-150 transition-transform duration-700 pointer-events-none">
+                        <MessageSquarePlus className="h-32 w-32" />
                       </div>
-                      {/* Add work update */}
-                      <div className="flex gap-2">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-6 flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" /> Team Feed & Communications
+                      </h4>
+                      <div className="space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-4">
+                        {(viewTask.work_updates || []).length === 0 ? (
+                          <p className="text-sm text-slate-500 italic">No communication logs yet.</p>
+                        ) : (
+                          (viewTask.work_updates || []).map((wu, i) => (
+                            <div key={i} className="space-y-1 bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                              <p className="text-sm leading-relaxed text-slate-200">{wu.text}</p>
+                              <div className="flex items-center gap-2 pt-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                <span className={cn(wu.updated_by === profile?.id ? "text-blue-400" : "text-amber-400")}>
+                                  {getUserName(wu.updated_by || null)}
+                                </span>
+                                <span className="opacity-20">•</span>
+                                <span className="font-mono">{wu.updated_at ? new Date(wu.updated_at).toLocaleString() : ''}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="flex gap-3 mt-8 pt-6 border-t border-white/10">
                         <Textarea
-                          placeholder="Add a work update..."
+                          placeholder="Type an update or comment..."
                           value={workUpdateText}
                           onChange={e => setWorkUpdateText(e.target.value)}
                           rows={2}
-                          className="flex-1"
+                          className="bg-white/5 border-white/10 text-white rounded-2xl h-14 min-h-[56px] focus:ring-blue-500/50"
                         />
-                        <Button onClick={handleAddWorkUpdate} disabled={addingUpdate || !workUpdateText.trim()} className="self-end">
-                          {addingUpdate ? '...' : 'Post'}
+                        <Button
+                          onClick={handleAddWorkUpdate}
+                          disabled={addingUpdate || !workUpdateText.trim()}
+                          className="h-14 w-14 rounded-2xl bg-blue-500 hover:bg-blue-400 shrink-0 shadow-lg shadow-blue-500/20"
+                        >
+                          <ChevronRight className="h-6 w-6" />
                         </Button>
                       </div>
                     </div>

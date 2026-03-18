@@ -25,6 +25,7 @@ const TaskSchema = new mongoose.Schema({
     },
     // Dates
     start_date: { type: Date, default: null },
+    planned_date: { type: Date, default: null }, // for Weekly Plan grid
     deadline: { type: Date, default: null },
     completion_date: { type: Date, default: null },
     estimated_time: { type: String, default: null }, // e.g. "6 Hours", "2 Days"
