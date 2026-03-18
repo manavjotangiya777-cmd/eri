@@ -49,6 +49,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'motion/react';
+import { useChatUnread } from '@/hooks/use-chat-unread';
+import { useFollowUpBadge } from '@/hooks/use-followup-badge';
+import { cn } from '@/lib/utils';
 
 interface AdminLayoutProps {
   children: ReactNode;
