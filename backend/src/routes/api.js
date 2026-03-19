@@ -960,8 +960,15 @@ defineStandardRoutes('/clients', Client);
 // Modified Tasks route to restrict visibility for employees
 router.get('/tasks', async (req, res) => {
     try {
-        const { assigned_to, user_id, role } = req.query;
+        const { assigned_to, user_id, role, task_type } = req.query;
         let query = {};
+
+        // Filter by task_type if specified, otherwise default to 'official'
+        if (task_type) {
+            query.task_type = task_type;
+        } else {
+            query.task_type = 'official';
+        }
 
         // If not admin/hr, restrict to assigned tasks only
         if (role !== 'admin' && role !== 'hr') {
@@ -2992,25 +2999,40 @@ router.post('/performance/calculate', async (req, res) => {
             if (attScore < 0) attScore = 0;
             if (attScore > 20) attScore = 20;
 
-            // 2. Task Completion Score
+            // 2. Task Completion & Weekly Plan Adherence Score (25%)
             const tasks = await Task.find({ assigned_to: { $in: [emp._id, emp._id.toString()] } });
+
+            // Filter tasks that belong to this month (Deadline, Planned Date, or Created)
             const matchedTasks = tasks.filter(t => {
-                if (t.deadline) return new Date(t.deadline).toISOString().substring(0, 7) === month;
-                if (t.created_at) return new Date(t.created_at).toISOString().substring(0, 7) === month;
-                return false;
+                const datesToCheck = [];
+                if (t.deadline) datesToCheck.push(new Date(t.deadline));
+                if (t.planned_date) datesToCheck.push(new Date(t.planned_date));
+                if (t.created_at) datesToCheck.push(new Date(t.created_at));
+
+                return datesToCheck.some(d => d.toISOString().substring(0, 7) === month);
             });
 
-            const totalTasks = matchedTasks.length;
-            const completedTasks = matchedTasks.filter(t => t.status === 'completed').length;
-            // Accurate Logic: If no tasks assigned, they don't get the "completion" marks. 
-            // This prevents inactive users from getting higher scores than hard working ones.
-            let taskScore = totalTasks > 0 ? (completedTasks / totalTasks) * 25 : 0;
+            const officialTasks = matchedTasks.filter(t => (t.task_type || 'official') === 'official');
+            const weeklyPlanTasks = matchedTasks.filter(t => t.task_type === 'weekly_plan');
+
+            const totalOfficial = officialTasks.length;
+            const completedOfficial = officialTasks.filter(t => t.status === 'completed').length;
+
+            const totalWeekly = weeklyPlanTasks.length;
+            const completedWeekly = weeklyPlanTasks.filter(t => t.status === 'completed').length;
+
+            // Split 25%: 15% for overall completion of official tasks, 10% for weekly plan discipline
+            let taskScore = 15 * (totalOfficial > 0 ? completedOfficial / totalOfficial : 0);
+            let weeklyPlanScore = 10 * (totalWeekly > 0 ? completedWeekly / totalWeekly : 0);
+
+            // If they don't use Weekly Plan, and have NO weekly plan tasks, score is 0/10 for that part!
+            if (totalWeekly === 0) weeklyPlanScore = 0;
 
             // 3. Task Quality Score (Wait for admin input)
             let existingPerf = await EmployeePerformance.findOne({ employee_id: emp._id, month });
             let adminRating = existingPerf ? existingPerf.admin_rating : 0;
             // Normalized quality score: if no tasks, quality is 0.
-            let qualityScore = totalTasks > 0 ? (adminRating / 5) * 15 : 0;
+            let qualityScore = totalOfficial > 0 ? (adminRating / 5) * 15 : 0;
 
             // 4. Activity Engagement Score
             const activities = await EmployeeActivity.find({ employee_id: emp._id, date: { $regex: `^${month}` } });
@@ -3061,7 +3083,7 @@ router.post('/performance/calculate', async (req, res) => {
             let appreciationBonus = appreciations.length * 2;
 
             const final_score = Math.round(
-                attScore + taskScore + qualityScore + actScore + leaveScore + commScore + followupScore - warningPenalty + appreciationBonus
+                attScore + taskScore + weeklyPlanScore + qualityScore + actScore + leaveScore + commScore + followupScore - warningPenalty + appreciationBonus
             );
 
             let grade = 'Needs Improvement';
@@ -3071,7 +3093,8 @@ router.post('/performance/calculate', async (req, res) => {
 
             const metadata = {
                 presentDays, totalWorkingDays, lateEntries,
-                totalTasks, completedTasks,
+                totalTasks: totalOfficial, completedTasks: completedOfficial,
+                totalWeeklyTasks: totalWeekly, completedWeeklyTasks: completedWeekly,
                 totalLogins, totalAi, totalLeaves, messagesCount: messages.length,
                 totalFollowups, completedFollowups,
                 warningsCount: warnings.length,
@@ -3083,6 +3106,7 @@ router.post('/performance/calculate', async (req, res) => {
                 {
                     attendance_score: attScore,
                     task_completion_score: taskScore,
+                    weekly_plan_score: weeklyPlanScore,
                     task_quality_score: qualityScore,
                     activity_engagement_score: actScore,
                     leave_management_score: leaveScore,
@@ -3127,6 +3151,7 @@ router.patch('/performance/:id', async (req, res) => {
         record.final_score = Math.round(
             record.attendance_score +
             record.task_completion_score +
+            (record.weekly_plan_score || 0) +
             record.task_quality_score +
             record.activity_engagement_score +
             record.leave_management_score +

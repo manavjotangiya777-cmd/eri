@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import EmployeeLayout from '@/components/layouts/EmployeeLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,8 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import { getPerformanceRecords } from '@/db/api';
 import { Award, BarChart3, TrendingUp, Briefcase, CalendarClock, MessageSquare, Zap, Target, AlertCircle } from 'lucide-react';
 
-export default function MyPerformance() {
+export default function MyPerformance({ Layout }: { Layout: any }) {
     const { profile } = useAuth();
+    const LayoutComponent = Layout;
+
     const [loading, setLoading] = useState(false);
     const [record, setRecord] = useState<any | null>(null);
 
@@ -59,7 +60,7 @@ export default function MyPerformance() {
     };
 
     return (
-        <EmployeeLayout>
+        <LayoutComponent>
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
@@ -147,12 +148,25 @@ export default function MyPerformance() {
                                 <CardHeader className="pb-2">
                                     <CardTitle className="flex items-center gap-2 text-lg">
                                         <Briefcase className="h-5 w-5 text-blue-500" />
-                                        Task Volume (25%)
+                                        Task Volume (15%)
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-3xl font-black mb-1 text-blue-600">{Math.round(record.task_completion_score)}<span className="text-sm text-muted-foreground font-medium">/25</span></p>
-                                    <p className="text-xs text-muted-foreground font-medium">Completed: {record.metadata?.completedTasks}/{record.metadata?.totalTasks} assigned tasks</p>
+                                    <p className="text-3xl font-black mb-1 text-blue-600">{Math.round(record.task_completion_score)}<span className="text-sm text-muted-foreground font-medium">/15</span></p>
+                                    <p className="text-xs text-muted-foreground font-medium">Completed: {record.metadata?.completedTasks || 0}/{record.metadata?.totalTasks || 0} assigned tasks</p>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="shadow-md">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <CalendarClock className="h-5 w-5 text-emerald-500" />
+                                        Weekly Planning (10%)
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-3xl font-black mb-1 text-emerald-600">{Math.round(record.weekly_plan_score || 0)}<span className="text-sm text-muted-foreground font-medium">/10</span></p>
+                                    <p className="text-xs text-muted-foreground font-medium">Adherence: {record.metadata?.completedWeeklyTasks || 0}/{record.metadata?.totalWeeklyTasks || 0} planned tasks</p>
                                 </CardContent>
                             </Card>
 
@@ -256,6 +270,6 @@ export default function MyPerformance() {
                     </div>
                 )}
             </div>
-        </EmployeeLayout>
+        </LayoutComponent>
     );
 }

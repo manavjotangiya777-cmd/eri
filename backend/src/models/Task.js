@@ -23,6 +23,11 @@ const TaskSchema = new mongoose.Schema({
         enum: ['pending', 'in_progress', 'review', 'completed', 'on_hold', 'cancelled'],
         default: 'pending'
     },
+    task_type: {
+        type: String,
+        enum: ['official', 'weekly_plan'],
+        default: 'official'
+    },
     // Dates
     start_date: { type: Date, default: null },
     planned_date: { type: Date, default: null }, // for Weekly Plan grid

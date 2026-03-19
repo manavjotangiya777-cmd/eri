@@ -6,7 +6,8 @@ const PerformanceSchema = new mongoose.Schema({
 
     // Scores
     attendance_score: { type: Number, default: 0 }, // max 20
-    task_completion_score: { type: Number, default: 0 }, // max 30
+    task_completion_score: { type: Number, default: 0 }, // max 15 (General Tasks)
+    weekly_plan_score: { type: Number, default: 0 }, // max 10 (Adherence to Planning)
     task_quality_score: { type: Number, default: 0 }, // max 15 (admin-rated)
     activity_engagement_score: { type: Number, default: 0 }, // max 10
     leave_management_score: { type: Number, default: 0 }, // max 10

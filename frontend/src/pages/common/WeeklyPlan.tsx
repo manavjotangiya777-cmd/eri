@@ -16,7 +16,7 @@ import { Task, Profile, Attendance } from '@/types';
 import {
     Plus,
     Clock,
-    Layout,
+    Layout as LayoutIcon,
     Briefcase,
     Play,
     Pause,
@@ -58,8 +58,9 @@ import {
 import AdminLayout from '@/components/layouts/AdminLayout';
 import HRLayout from '@/components/layouts/HRLayout';
 import EmployeeLayout from '@/components/layouts/EmployeeLayout';
+import BDELayout from '@/components/layouts/BDELayout';
 
-const WeeklyPlan = () => {
+const WeeklyPlan = ({ Layout }: { Layout?: any }) => {
     const { profile } = useAuth();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
@@ -85,7 +86,7 @@ const WeeklyPlan = () => {
     }, [profile]);
 
     // Layout helper
-    const LayoutComponent = profile?.role === 'admin' ? AdminLayout : (profile?.role === 'hr' ? HRLayout : EmployeeLayout);
+    const LayoutComponent = Layout || (profile?.role === 'admin' ? AdminLayout : (profile?.role === 'hr' ? HRLayout : (profile?.role === 'bde' ? BDELayout : EmployeeLayout)));
 
     // Get days of the week
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday start
@@ -154,7 +155,7 @@ const WeeklyPlan = () => {
 
             if (targetUserId) {
                 // Fetch tasks for the selected user
-                const allTasks = await getTasks({ assigned_to: targetUserId });
+                const allTasks = await getTasks({ assigned_to: targetUserId, task_type: 'weekly_plan' });
                 setTasks(allTasks);
 
                 // Sync active timer for target user
@@ -235,6 +236,7 @@ const WeeklyPlan = () => {
                 description: newTask.description || null,
                 priority: newTask.priority as any,
                 estimated_time: newTask.estimated_time || null,
+                task_type: 'weekly_plan',
                 planned_date: addTaskDate ? addTaskDate.toISOString() : null,
                 assigned_to: targetUserId || null,
                 assigned_by: profile?.id || null,
@@ -345,7 +347,7 @@ const WeeklyPlan = () => {
                 <div className="bg-white border rounded-2xl p-4 shadow-xl shadow-slate-200/50 flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-4 w-full md:w-auto">
                         <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
-                            <Layout className="h-5 w-5" />
+                            <LayoutIcon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-lg font-black text-slate-900 tracking-tight uppercase truncate">Weekly Plan</h1>

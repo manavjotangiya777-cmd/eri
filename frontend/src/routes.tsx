@@ -22,6 +22,7 @@ import WarningManagement from './pages/admin/WarningManagement';
 import AdminLayout from './components/layouts/AdminLayout';
 import HRLayout from './components/layouts/HRLayout';
 import BDELayout from './components/layouts/BDELayout';
+import EmployeeLayout from './components/layouts/EmployeeLayout';
 import AiAssistantPage from './pages/AiAssistantPage';
 import SalaryManagement from '@/pages/admin/SalaryManagement';
 import CashFlowPage from './pages/admin/CashFlow';
@@ -176,7 +177,12 @@ const routes: RouteConfig[] = [
   {
     name: 'Weekly Plan',
     path: '/admin/weekly-plan',
-    element: <ProtectedRoute allowedRoles={['admin']}><WeeklyPlan /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['admin']}><WeeklyPlan Layout={AdminLayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'My Performance',
+    path: '/admin/performance/me',
+    element: <ProtectedRoute allowedRoles={['admin']}><MyPerformance Layout={AdminLayout} /></ProtectedRoute>,
   },
   {
     path: '/admin/profile',
@@ -251,7 +257,12 @@ const routes: RouteConfig[] = [
   {
     name: 'Weekly Plan',
     path: '/hr/weekly-plan',
-    element: <ProtectedRoute allowedRoles={['hr']}><WeeklyPlan /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['hr']}><WeeklyPlan Layout={HRLayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'My Performance',
+    path: '/hr/performance',
+    element: <ProtectedRoute allowedRoles={['hr']}><MyPerformance Layout={HRLayout} /></ProtectedRoute>,
   },
   {
     name: 'Salary Management',
@@ -297,12 +308,12 @@ const routes: RouteConfig[] = [
   {
     name: 'My Performance',
     path: '/employee/performance',
-    element: <ProtectedRoute allowedRoles={['employee']}><MyPerformance /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['employee']}><MyPerformance Layout={EmployeeLayout} /></ProtectedRoute>,
   },
   {
     name: 'Weekly Plan',
     path: '/employee/weekly-plan',
-    element: <ProtectedRoute allowedRoles={['employee']}><WeeklyPlan /></ProtectedRoute>,
+    element: <ProtectedRoute allowedRoles={['employee']}><WeeklyPlan Layout={EmployeeLayout} /></ProtectedRoute>,
   },
   {
     name: 'AI Assistant',
@@ -398,6 +409,16 @@ const routes: RouteConfig[] = [
     name: 'AI Assistant',
     path: '/bde/ai-assistant',
     element: <ProtectedRoute allowedRoles={['bde']}><AiAssistantPage /></ProtectedRoute>,
+  },
+  {
+    name: 'Weekly Plan',
+    path: '/bde/weekly-plan',
+    element: <ProtectedRoute allowedRoles={['bde']}><WeeklyPlan Layout={BDELayout} /></ProtectedRoute>,
+  },
+  {
+    name: 'My Performance',
+    path: '/bde/performance',
+    element: <ProtectedRoute allowedRoles={['bde']}><MyPerformance Layout={BDELayout} /></ProtectedRoute>,
   },
   {
     name: 'Information',

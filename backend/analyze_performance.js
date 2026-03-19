@@ -19,9 +19,20 @@ async function analyze() {
     const firstDay = new Date(2026, 2, 1);
     const lastDay = new Date(2026, 3, 0);
 
+    // Task Analysis for current month
+    const matchedTasks = await Task.find({
+        assigned_to: { $in: [userId, userId.toString()] },
+        $or: [
+            { deadline: { $gte: firstDay, $lte: lastDay } },
+            { planned_date: { $gte: firstDay, $lte: lastDay } },
+            { created_at: { $gte: firstDay, $lte: lastDay } }
+        ]
+    });
+
     const results = {
         attendance: await Attendance.find({ user_id: userId, date: { $regex: '^' + month } }),
-        tasks: await Task.find({ assigned_to: { $in: [userId, userId.toString()] } }),
+        tasks: matchedTasks,
+        weekly_plan: matchedTasks.filter(t => t.planned_date),
         followups: await FollowUp.find({ assigned_to: { $in: [userId, userId.toString()] } }),
         warnings: await Warning.find({ user_id: userId, created_at: { $gte: firstDay, $lte: lastDay } }),
         appreciations: await Appreciation.find({ employee_id: userId, created_at: { $gte: firstDay, $lte: lastDay } }),

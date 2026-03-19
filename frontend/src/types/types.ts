@@ -188,6 +188,7 @@ export interface Task {
   department: string | null;
   priority: TaskPriority;
   status: TaskStatus;
+  task_type?: 'official' | 'weekly_plan';
   start_date: string | null;
   planned_date: string | null;
   deadline: string | null;
