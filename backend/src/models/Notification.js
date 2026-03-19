@@ -26,8 +26,9 @@ const NotificationSchema = new mongoose.Schema({
 async function cleanupNotifications(model) {
     try {
         const count = await model.countDocuments();
-        if (count > 30) {
-            const excess = count - 30;
+        const LIMIT = 500;
+        if (count > LIMIT) {
+            const excess = count - LIMIT;
             // Find the oldest [excess] notifications
             const oldest = await model.find()
                 .sort({ created_at: 1 })
@@ -37,7 +38,7 @@ async function cleanupNotifications(model) {
             if (oldest.length > 0) {
                 const idsToDelete = oldest.map(n => n._id);
                 await model.deleteMany({ _id: { $in: idsToDelete } });
-                console.log(`[Notification Cleanup] Deleted ${idsToDelete.length} oldest notifications. Count now: 30`);
+                console.log(`[Notification Cleanup] Deleted ${idsToDelete.length} oldest notifications. Count now: ${LIMIT}`);
             }
         }
     } catch (err) {

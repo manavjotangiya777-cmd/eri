@@ -2065,10 +2065,9 @@ router.get('/notifications', async (req, res) => {
             ]
         };
 
-        // Admins can see everything except their own sent notifications
-        if (role === 'admin') {
-            query.$and.pop(); // Remove the restrictive visibility for admins
-        }
+        // Use the standard restrictive query for everyone. 
+        // Targeted notifications should only be seen by the target user or their role.
+        // This prevents admins from seeing duplicate notifications intended for multiple group chat members.
 
         const notifications = await Notification.find(query)
             .sort({ created_at: -1 })
