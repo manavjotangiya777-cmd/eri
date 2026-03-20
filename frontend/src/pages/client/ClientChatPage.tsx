@@ -155,35 +155,57 @@ export default function ClientChatPage() {
               <CardContent className="flex-1 p-4 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-y-auto pr-4 scroll-smooth">
                   <div className="space-y-4">
-                    {messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.sender_id === profile?.id ? 'justify-end' : 'justify-start'} group`}
-                      >
-                        <div
-                          className={`max-w-[80%] px-4 py-2 rounded-lg relative ${msg.sender_id === profile?.id
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-foreground'
-                            }`}
-                        >
-                          <p className="text-sm">{msg.content}</p>
-                          <div className="flex items-center justify-between gap-2 mt-1">
-                            {msg.sender_id === profile?.id && (
-                              <button
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
-                                title="Delete Message"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            )}
-                            <p className="text-[10px] opacity-70 ml-auto">
-                              {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
+                    {messages.map((msg, index) => {
+                      const msgDate = new Date(msg.created_at || new Date());
+                      const msgDateString = msgDate.toLocaleDateString();
+                      const prevMsgDateString = index > 0 ? new Date(messages[index - 1].created_at || new Date()).toLocaleDateString() : null;
+                      const showDateHeader = msgDateString !== prevMsgDateString;
+
+                      const isToday = msgDateString === new Date().toLocaleDateString();
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      const isYesterday = msgDateString === yesterday.toLocaleDateString();
+
+                      const displayDate = isToday ? 'Today' : isYesterday ? 'Yesterday' : msgDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                      return (
+                        <div key={msg.id}>
+                          {showDateHeader && (
+                            <div className="flex justify-center my-6">
+                              <div className="bg-slate-200/50 text-slate-500 text-[10px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full border border-slate-200/50 backdrop-blur-sm">
+                                {displayDate}
+                              </div>
+                            </div>
+                          )}
+                          <div
+                            className={`flex ${msg.sender_id === profile?.id ? 'justify-end' : 'justify-start'} group mt-2`}
+                          >
+                            <div
+                              className={`max-w-[80%] px-4 py-2 rounded-lg relative ${msg.sender_id === profile?.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-foreground'
+                                }`}
+                            >
+                              <p className="text-sm">{msg.content}</p>
+                              <div className="flex items-center justify-between gap-2 mt-1">
+                                {msg.sender_id === profile?.id && (
+                                  <button
+                                    onClick={() => handleDeleteMessage(msg.id)}
+                                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
+                                    title="Delete Message"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <p className="text-[10px] opacity-70 ml-auto">
+                                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {messages.length === 0 && (
                       <div className="text-center text-muted-foreground py-10">
                         No messages yet. Send a message to start the conversation.

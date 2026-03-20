@@ -269,48 +269,69 @@ export default function ChatPage() {
                         <p className="font-bold">No messages yet. Start the conversation!</p>
                       </div>
                     )}
-                    {messages.map((message: Message) => {
+                    {messages.map((message: Message, index: number) => {
+                      const msgDate = new Date(message.created_at || new Date());
+                      const msgDateString = msgDate.toLocaleDateString();
+                      const prevMsgDateString = index > 0 ? new Date(messages[index - 1].created_at || new Date()).toLocaleDateString() : null;
+                      const showDateHeader = msgDateString !== prevMsgDateString;
+
+                      const isToday = msgDateString === new Date().toLocaleDateString();
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      const isYesterday = msgDateString === yesterday.toLocaleDateString();
+
+                      const displayDate = isToday ? 'Today' : isYesterday ? 'Yesterday' : msgDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
                       const isOwn = message.sender_id === profile?.id || (message.sender_id as any)?._id === profile?.id;
                       const isImage = message.file_type?.startsWith('image/');
                       return (
-                        <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group`}>
-                          <div className={`max-w-[75%] space-y-1`}>
-                            {!isOwn && <p className="text-[10px] font-black ml-4 text-primary uppercase tracking-widest mb-1">{getSenderName(message.sender_id)}</p>}
-                            <div className={`rounded-3xl px-6 py-3.5 shadow-sm border ${isOwn ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-primary rounded-br-none shadow-primary/20' : 'bg-white border-slate-200 rounded-bl-none shadow-slate-100'}`}>
-                              {message.content && <p className="text-[15px] leading-relaxed font-medium">{message.content}</p>}
-                              {message.file_url && (
-                                <div className="mt-3 overflow-hidden rounded-[24px] ring-1 ring-black/5 shadow-lg">
-                                  {isImage ? (
-                                    <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer">
-                                      <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[450px] object-cover hover:scale-[1.02] transition-transform cursor-zoom-in" />
-                                    </a>
-                                  ) : (
-                                    <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-slate-50 rounded-[24px] border border-slate-100 hover:bg-slate-100 transition-all group">
-                                      <div className="h-14 w-14 bg-white rounded-2xl flex items-center justify-center shadow-md text-primary group-hover:scale-110 transition-transform">
-                                        <FileText className="h-8 w-8" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-black truncate text-slate-900 leading-tight">{message.file_name}</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Shared Document</p>
-                                      </div>
-                                      <Download className="h-5 w-5 opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all" />
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between gap-2 mt-2.5">
-                                {isOwn && (
-                                  <button
-                                    onClick={() => handleDeleteMessage(message.id)}
-                                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
-                                    title="Delete Message"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
+                        <div key={message.id}>
+                          {showDateHeader && (
+                            <div className="flex justify-center my-6">
+                              <div className="bg-slate-200/50 text-slate-500 text-[10px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full border border-slate-200/50 backdrop-blur-sm">
+                                {displayDate}
+                              </div>
+                            </div>
+                          )}
+                          <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group mt-2`}>
+                            <div className={`max-w-[75%] space-y-1`}>
+                              {!isOwn && <p className="text-[10px] font-black ml-4 text-primary uppercase tracking-widest mb-1">{getSenderName(message.sender_id)}</p>}
+                              <div className={`rounded-3xl px-6 py-3.5 shadow-sm border ${isOwn ? 'bg-gradient-to-br from-primary to-primary/90 text-primary-foreground border-primary rounded-br-none shadow-primary/20' : 'bg-white border-slate-200 rounded-bl-none shadow-slate-100'}`}>
+                                {message.content && <p className="text-[15px] leading-relaxed font-medium">{message.content}</p>}
+                                {message.file_url && (
+                                  <div className="mt-3 overflow-hidden rounded-[24px] ring-1 ring-black/5 shadow-lg">
+                                    {isImage ? (
+                                      <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer">
+                                        <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[450px] object-cover hover:scale-[1.02] transition-transform cursor-zoom-in" />
+                                      </a>
+                                    ) : (
+                                      <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-slate-50 rounded-[24px] border border-slate-100 hover:bg-slate-100 transition-all group">
+                                        <div className="h-14 w-14 bg-white rounded-2xl flex items-center justify-center shadow-md text-primary group-hover:scale-110 transition-transform">
+                                          <FileText className="h-8 w-8" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-black truncate text-slate-900 leading-tight">{message.file_name}</p>
+                                          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Shared Document</p>
+                                        </div>
+                                        <Download className="h-5 w-5 opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all" />
+                                      </a>
+                                    )}
+                                  </div>
                                 )}
-                                <p className="text-[9px] opacity-60 font-black tracking-widest uppercase">
-                                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
+                                <div className="flex items-center justify-between gap-2 mt-2.5">
+                                  {isOwn && (
+                                    <button
+                                      onClick={() => handleDeleteMessage(message.id)}
+                                      className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
+                                      title="Delete Message"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                  <p className="text-[9px] opacity-60 font-black tracking-widest uppercase">
+                                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>

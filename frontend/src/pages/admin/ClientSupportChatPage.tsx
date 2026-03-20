@@ -191,20 +191,42 @@ export default function ClientSupportChatPage({ Layout }: ClientSupportChatPageP
                                                     <p className="text-xs">Start the conversation with this client</p>
                                                 </div>
                                             ) : (
-                                                messages.map((msg) => {
+                                                messages.map((msg, index) => {
                                                     const isMe = msg.sender_id === profile?.id;
+
+                                                    const msgDate = new Date(msg.created_at || new Date());
+                                                    const msgDateString = msgDate.toLocaleDateString();
+                                                    const prevMsgDateString = index > 0 ? new Date(messages[index - 1].created_at || new Date()).toLocaleDateString() : null;
+                                                    const showDateHeader = msgDateString !== prevMsgDateString;
+
+                                                    const isToday = msgDateString === new Date().toLocaleDateString();
+                                                    const yesterday = new Date();
+                                                    yesterday.setDate(yesterday.getDate() - 1);
+                                                    const isYesterday = msgDateString === yesterday.toLocaleDateString();
+
+                                                    const displayDate = isToday ? 'Today' : isYesterday ? 'Yesterday' : msgDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
                                                     return (
-                                                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                            <div className={cn(
-                                                                'max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm',
-                                                                isMe
-                                                                    ? 'bg-primary text-primary-foreground rounded-br-sm'
-                                                                    : 'bg-muted text-foreground rounded-bl-sm'
-                                                            )}>
-                                                                <p className="text-sm leading-relaxed">{msg.content}</p>
-                                                                <p className={cn('text-[10px] mt-1 opacity-70', isMe ? 'text-right' : 'text-left')}>
-                                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                </p>
+                                                        <div key={msg.id}>
+                                                            {showDateHeader && (
+                                                                <div className="flex justify-center my-6">
+                                                                    <div className="bg-slate-200/50 text-slate-500 text-[10px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full border border-slate-200/50 backdrop-blur-sm">
+                                                                        {displayDate}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mt-2`}>
+                                                                <div className={cn(
+                                                                    'max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm',
+                                                                    isMe
+                                                                        ? 'bg-primary text-primary-foreground rounded-br-sm'
+                                                                        : 'bg-muted text-foreground rounded-bl-sm'
+                                                                )}>
+                                                                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                                                                    <p className={cn('text-[10px] mt-1 opacity-70', isMe ? 'text-right' : 'text-left')}>
+                                                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </p>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );
