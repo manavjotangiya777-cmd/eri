@@ -420,6 +420,26 @@ router.post('/attendance/clock-out', ensureOfficeNetwork, async (req, res) => {
         record.status = 'clocked_out';
         record.currentSessionOpen = false;
 
+        // Auto-stop active tasks
+        try {
+            const activeLogs = await TaskTimeLog.find({ user_id: toObjectId(user_id), end_time: null });
+            const stopTime = new Date();
+            for (const log of activeLogs) {
+                const duration = Math.floor((stopTime - log.start_time) / 1000);
+                log.end_time = stopTime;
+                log.duration = duration;
+                await log.save();
+
+                if (log.task_id) {
+                    await Task.findByIdAndUpdate(log.task_id, {
+                        $inc: { total_time_spent: duration }
+                    });
+                }
+            }
+        } catch (taskErr) {
+            console.error('Auto-stop tasks error:', taskErr);
+        }
+
         await record.save();
         res.json(record);
     } catch (err) {
@@ -439,6 +459,26 @@ router.post('/attendance/break-in', ensureOfficeNetwork, async (req, res) => {
         record.breaks.push({ breakInAt: now });
         record.status = 'on_break';
         record.currentBreakOpen = true;
+
+        // Auto-stop active tasks
+        try {
+            const activeLogs = await TaskTimeLog.find({ user_id: toObjectId(user_id), end_time: null });
+            const stopTime = new Date();
+            for (const log of activeLogs) {
+                const duration = Math.floor((stopTime - log.start_time) / 1000);
+                log.end_time = stopTime;
+                log.duration = duration;
+                await log.save();
+
+                if (log.task_id) {
+                    await Task.findByIdAndUpdate(log.task_id, {
+                        $inc: { total_time_spent: duration }
+                    });
+                }
+            }
+        } catch (taskErr) {
+            console.error('Auto-stop tasks error:', taskErr);
+        }
 
         await record.save();
         res.status(201).json(record);
