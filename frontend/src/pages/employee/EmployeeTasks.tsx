@@ -82,6 +82,10 @@ export default function EmployeeTasks({ Layout = EmployeeLayout }: EmployeeTasks
   }, [activeTimer]);
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
+    if (newStatus === 'completed') {
+      toast({ title: 'Restricted', description: 'Only HR can mark tasks as completed', variant: 'destructive' });
+      return;
+    }
     try {
       await updateTaskStatus(taskId, newStatus);
       toast({ title: 'Success', description: 'Status updated' });
@@ -210,10 +214,14 @@ export default function EmployeeTasks({ Layout = EmployeeLayout }: EmployeeTasks
                     <div className="lg:w-72 space-y-5 lg:border-l lg:pl-8 flex flex-col justify-center">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 flex items-center gap-1"><Hash className="h-3 w-3" /> Execution Status</Label>
-                        <Select value={task.status} onValueChange={(v) => handleStatusChange(task.id, v)}>
+                        <Select value={task.status} onValueChange={(v) => handleStatusChange(task.id, v)} disabled={task.status === 'completed'}>
                           <SelectTrigger className="h-11 rounded-xl bg-white focus:ring-primary/20 transition-all font-bold"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {['pending', 'in_progress', 'review', 'completed', 'on_hold'].map(s => <SelectItem key={s} value={s} className="font-bold">{s.replace('_', ' ').toUpperCase()}</SelectItem>)}
+                            {['pending', 'in_progress', 'review', 'completed', 'on_hold'].map(s => (
+                              (s === 'completed' && task.status !== 'completed') ? null : (
+                                <SelectItem key={s} value={s} className="font-bold">{s.replace('_', ' ').toUpperCase()}</SelectItem>
+                              )
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

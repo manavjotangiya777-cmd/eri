@@ -298,6 +298,10 @@ const WeeklyPlan = ({ Layout }: { Layout?: any }) => {
     };
 
     const handleStatusUpdate = async (taskId: string, status: string) => {
+        if (status === 'completed' && !isAdminOrHr) {
+            toast({ title: 'Restricted', description: 'Only HR can mark tasks as completed', variant: 'destructive' });
+            return;
+        }
         try {
             await updateTaskStatus(taskId, status);
             setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: status as any } : t));
@@ -823,9 +827,11 @@ const TaskCard = ({
                             <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Workflow Status</DropdownMenuLabel>
                             <div className="grid grid-cols-1 gap-0.5 p-1">
                                 {['pending', 'in_progress', 'review', 'completed', 'on_hold'].map((s) => (
-                                    <DropdownMenuItem key={s} onClick={() => onStatusUpdate(task.id, s)} className="text-[10px] capitalize font-bold h-8">
-                                        {s.replace('_', ' ')}
-                                    </DropdownMenuItem>
+                                    (!isAdminOrHr && s === 'completed') ? null : (
+                                        <DropdownMenuItem key={s} onClick={() => onStatusUpdate(task.id, s)} className="text-[10px] capitalize font-bold h-8">
+                                            {s.replace('_', ' ')}
+                                        </DropdownMenuItem>
+                                    )
                                 ))}
                             </div>
                         </DropdownMenuContent>
