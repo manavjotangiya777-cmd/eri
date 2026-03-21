@@ -458,7 +458,7 @@ export default function HRTaskManagement() {
                               </p>
                             </div>
                           </div>
-                          {activeTimer?.task_id === task.id ? <Button size="sm" variant="outline" onClick={() => handlePauseTask(task.id)}><Pause className="h-4 w-4 mr-2" /> Pause</Button> : <Button size="sm" onClick={() => handlePlayTask(task.id)} disabled={activeTimer !== null}><Play className="h-4 w-4 mr-2" /> Start</Button>}
+                          {activeTimer?.task_id === task.id ? <Button size="sm" variant="outline" onClick={() => handlePauseTask(task.id)}><Pause className="h-4 w-4 mr-2" /> Pause</Button> : <Button size="sm" onClick={() => handlePlayTask(task.id)} disabled={activeTimer !== null || task.status === 'completed'}><Play className="h-4 w-4 mr-2" /> Start</Button>}
                         </div>
                       </div>
 

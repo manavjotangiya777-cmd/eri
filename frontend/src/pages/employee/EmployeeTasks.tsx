@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import EmployeeLayout from '@/components/layouts/EmployeeLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent,
 } from '@/components/ui/dialog';
 import {
   getEmployeeTasks, startTaskTimer, pauseTaskTimer,
@@ -207,7 +207,7 @@ export default function EmployeeTasks({ Layout = EmployeeLayout }: EmployeeTasks
                         </div>
                         {activeTimer?.task_id === task.id ?
                           <Button size="sm" variant="outline" onClick={() => handlePauseTask(task.id)} className="rounded-xl border-dashed hover:bg-slate-100 transition-all font-bold gap-2"><Pause className="h-4 w-4" /> Pause Session</Button> :
-                          <Button size="sm" onClick={() => handlePlayTask(task.id)} disabled={activeTimer !== null} className="rounded-xl shadow-lg shadow-primary/20 font-bold gap-2"><Play className="h-4 w-4" /> Start Session</Button>}
+                          <Button size="sm" onClick={() => handlePlayTask(task.id)} disabled={activeTimer !== null || task.status === 'completed'} className="rounded-xl shadow-lg shadow-primary/20 font-bold gap-2"><Play className="h-4 w-4" /> Start Session</Button>}
                       </div>
                     </div>
 

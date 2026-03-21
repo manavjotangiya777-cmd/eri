@@ -886,7 +886,7 @@ const TaskCard = ({
                                     size="sm"
                                     className="h-7 px-2.5 text-[10px] font-black text-primary border-primary/30 hover:bg-primary hover:text-white transition-all rounded-lg gap-1.5 shadow-sm active:scale-95"
                                     onClick={() => onPlay(task.id)}
-                                    disabled={activeTimer !== null}
+                                    disabled={activeTimer !== null || task.status === 'completed'}
                                 >
                                     <Play className="h-3 w-3 fill-current" /> START
                                 </Button>
