@@ -89,9 +89,6 @@ export default function AttendanceOverview() {
     }
   };
 
-  const handleDateFilter = () => {
-    loadData();
-  };
 
   const handleClearFilter = () => {
     setStartDate('');
@@ -364,8 +361,8 @@ export default function AttendanceOverview() {
         return;
       }
 
-      const clockInISO = formData.clock_in ? `${formData.date}T${formData.clock_in}:00` : null;
-      const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00` : null;
+      const clockInISO = formData.clock_in ? `${formData.date}T${formData.clock_in}:00+05:30` : null;
+      const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00+05:30` : null;
 
       const now = new Date();
       if (clockOutISO && new Date(clockOutISO) > now) {

@@ -28,12 +28,12 @@ import {
   Menu,
   LogOut,
   User,
-  Bell,
   Info,
   IndianRupee,
-  HardDrive,
   Layout,
   Award,
+  HardDrive,
+  Bell,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useChatUnread } from '@/hooks/use-chat-unread';
@@ -44,7 +44,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface BDELayoutProps {
@@ -118,8 +118,6 @@ const NavContent = ({
           {bdeNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            const isChat = item.label === 'Chat';
-            const isFollowUp = item.label === 'Follow-Ups';
 
             return (
               <Tooltip key={item.path}>
@@ -148,12 +146,12 @@ const NavContent = ({
                       </motion.span>
                     )}
 
-                    {isChat && unreadChatCount > 0 && (
+                    {item.label === 'Chat' && unreadChatCount > 0 && (
                       <Badge variant="destructive" className={cn("h-5 min-w-[20px] flex items-center justify-center p-0 text-[10px] rounded-full", isCollapsed ? "absolute top-1 right-1" : "")}>
                         {unreadChatCount > 9 ? '9+' : unreadChatCount}
                       </Badge>
                     )}
-                    {isFollowUp && followUpBadge > 0 && (
+                    {item.label === 'Follow-Ups' && followUpBadge > 0 && (
                       <Badge className={cn("h-5 min-w-[20px] flex items-center justify-center p-0 text-[10px] rounded-full bg-amber-500 hover:bg-amber-500", isCollapsed ? "absolute top-1 right-1" : "")}>
                         {followUpBadge > 9 ? '9+' : followUpBadge}
                       </Badge>

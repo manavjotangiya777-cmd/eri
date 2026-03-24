@@ -869,116 +869,134 @@ router.patch('/leaves', handleLeaveUpdate);
 router.put('/leaves/:id', handleLeaveUpdate);
 router.patch('/leaves/:id', handleLeaveUpdate);
 
+const applyAttendanceCalculation = async (record) => {
+    let totalClockSeconds = 0;
+    let totalBreakSeconds = 0;
+    let isCurrentSessionOpen = false;
+    let isCurrentBreakOpen = false;
+
+    if (record.sessions) {
+        record.sessions.forEach(s => {
+            if (s.clockInAt && s.clockOutAt) {
+                s.durationSeconds = Math.floor((new Date(s.clockOutAt) - new Date(s.clockInAt)) / 1000);
+                totalClockSeconds += s.durationSeconds;
+            } else if (s.clockInAt) {
+                isCurrentSessionOpen = true;
+            }
+        });
+    }
+
+    if (record.breaks) {
+        record.breaks.forEach(b => {
+            if (b.breakInAt && b.breakOutAt) {
+                b.durationSeconds = Math.floor((new Date(b.breakOutAt) - new Date(b.breakInAt)) / 1000);
+                totalBreakSeconds += b.durationSeconds;
+            } else if (b.breakInAt) {
+                isCurrentBreakOpen = true;
+            }
+        });
+    }
+
+    record.currentSessionOpen = isCurrentSessionOpen;
+    record.currentBreakOpen = isCurrentBreakOpen;
+
+    if (isCurrentSessionOpen && record.sessions && record.sessions.length > 0) {
+        record.lastClockInAt = record.sessions[record.sessions.length - 1].clockInAt;
+    }
+
+    record.totals = record.totals || {};
+    record.totals.totalClockSeconds = totalClockSeconds;
+    record.totals.totalBreakSeconds = totalBreakSeconds;
+    record.totals.workSeconds = Math.max(0, totalClockSeconds - totalBreakSeconds);
+
+    const settings = await SystemSettings.findOne();
+    const firstClockIn = record.sessions && record.sessions.length > 0 ? record.sessions[0].clockInAt : null;
+
+    if (firstClockIn) {
+        const shiftType = record.user_id?.shift_type || 'full_day';
+        const startTimeStr = shiftType === 'half_day' ? (settings?.half_day_start_time || '09:00') : (settings?.work_start_time || '09:00');
+        const threshold = shiftType === 'half_day' ? (settings?.half_day_late_threshold ?? 15) : (settings?.late_threshold_minutes ?? 15);
+
+        const { h: inH, m: inM } = getISTTimeParts(new Date(firstClockIn));
+        const [targetH, targetM] = startTimeStr.split(':').map(Number);
+
+        const nowTotalMinutes = inH * 60 + inM;
+        const targetTotalMinutes = targetH * 60 + targetM;
+        const limitTotalMinutes = targetTotalMinutes + threshold;
+
+        if (nowTotalMinutes > limitTotalMinutes) {
+            record.is_late = true;
+            record.late_minutes = nowTotalMinutes - targetTotalMinutes;
+        } else {
+            record.is_late = false;
+            record.late_minutes = 0;
+        }
+    }
+
+    const shiftType = record.user_id?.shift_type || 'full_day';
+    const overtimeEnabled = settings?.overtime_enabled !== false;
+    const oThresholdHours = shiftType === 'half_day'
+        ? (settings?.half_day_overtime_threshold_hours ?? 4)
+        : (settings?.overtime_threshold_hours ?? 8);
+    const thresholdSeconds = oThresholdHours * 3600;
+
+    if (overtimeEnabled) {
+        record.totals.overtimeSeconds = Math.max(0, record.totals.workSeconds - thresholdSeconds);
+    } else {
+        record.totals.overtimeSeconds = 0;
+    }
+
+    if (record.totals.workSeconds < thresholdSeconds) {
+        record.is_early_leave = true;
+        record.early_leave_minutes = Math.round((thresholdSeconds - record.totals.workSeconds) / 60);
+    } else {
+        record.is_early_leave = false;
+        record.early_leave_minutes = 0;
+    }
+
+    // Preserve the user_id as an ID for saving
+    const uid = record.user_id._id || record.user_id;
+    record.user_id = uid;
+
+    return record;
+};
+
 const handleAttendanceAdminUpdate = async (req, res, next) => {
     if (!req.body.admin_update_times) return next();
 
     try {
         const id = req.params.id || req.query.id;
-        const record = await Attendance.findById(id).populate('user_id');
+        let record = await Attendance.findById(id).populate('user_id');
         if (!record) return res.status(404).json({ error: 'Attendance not found' });
 
-        const updates = req.body;
-        if (updates.sessions) record.sessions = updates.sessions;
-        if (updates.breaks) record.breaks = updates.breaks;
+        if (req.body.sessions) record.sessions = req.body.sessions;
+        if (req.body.breaks) record.breaks = req.body.breaks;
 
-        let totalClockSeconds = 0;
-        let totalBreakSeconds = 0;
-        let isCurrentSessionOpen = false;
-        let isCurrentBreakOpen = false;
-
-        if (record.sessions) {
-            record.sessions.forEach(s => {
-                if (s.clockInAt && s.clockOutAt) {
-                    s.durationSeconds = Math.floor((new Date(s.clockOutAt) - new Date(s.clockInAt)) / 1000);
-                    totalClockSeconds += s.durationSeconds;
-                } else if (s.clockInAt) {
-                    isCurrentSessionOpen = true;
-                }
-            });
-        }
-
-        if (record.breaks) {
-            record.breaks.forEach(b => {
-                if (b.breakInAt && b.breakOutAt) {
-                    b.durationSeconds = Math.floor((new Date(b.breakOutAt) - new Date(b.breakInAt)) / 1000);
-                    totalBreakSeconds += b.durationSeconds;
-                } else if (b.breakInAt) {
-                    isCurrentBreakOpen = true;
-                }
-            });
-        }
-
-        record.currentSessionOpen = isCurrentSessionOpen;
-        record.currentBreakOpen = isCurrentBreakOpen;
-
-        if (isCurrentSessionOpen && record.sessions && record.sessions.length > 0) {
-            record.lastClockInAt = record.sessions[record.sessions.length - 1].clockInAt;
-        }
-
-        record.totals = record.totals || {};
-        record.totals.totalClockSeconds = totalClockSeconds;
-        record.totals.totalBreakSeconds = totalBreakSeconds;
-        record.totals.workSeconds = Math.max(0, totalClockSeconds - totalBreakSeconds);
-
-        const settings = await SystemSettings.findOne();
-        const firstClockIn = record.sessions && record.sessions.length > 0 ? record.sessions[0].clockInAt : null;
-
-        if (firstClockIn) {
-            const shiftType = record.user_id?.shift_type || 'full_day';
-            const startTimeStr = shiftType === 'half_day' ? (settings?.half_day_start_time || '09:00') : (settings?.work_start_time || '09:00');
-            const threshold = shiftType === 'half_day' ? (settings?.half_day_late_threshold ?? 15) : (settings?.late_threshold_minutes ?? 15);
-
-            const { h: inH, m: inM } = getISTTimeParts(new Date(firstClockIn));
-            const [targetH, targetM] = startTimeStr.split(':').map(Number);
-
-            const nowTotalMinutes = inH * 60 + inM;
-            const targetTotalMinutes = targetH * 60 + targetM;
-            const limitTotalMinutes = targetTotalMinutes + threshold;
-
-            if (nowTotalMinutes > limitTotalMinutes) {
-                record.is_late = true;
-                record.late_minutes = nowTotalMinutes - targetTotalMinutes;
-            } else {
-                record.is_late = false;
-                record.late_minutes = 0;
-            }
-        }
-
-        const shiftType = record.user_id?.shift_type || 'full_day';
-        const overtimeEnabled = settings?.overtime_enabled !== false;
-        const oThresholdHours = shiftType === 'half_day'
-            ? (settings?.half_day_overtime_threshold_hours ?? 4)
-            : (settings?.overtime_threshold_hours ?? 8);
-        const thresholdSeconds = oThresholdHours * 3600;
-
-        if (overtimeEnabled) {
-            record.totals.overtimeSeconds = Math.max(0, record.totals.workSeconds - thresholdSeconds);
-        } else {
-            record.totals.overtimeSeconds = 0;
-        }
-
-        if (record.totals.workSeconds < thresholdSeconds) {
-            record.is_early_leave = true;
-            record.early_leave_minutes = Math.round((thresholdSeconds - record.totals.workSeconds) / 60);
-        } else {
-            record.is_early_leave = false;
-            record.early_leave_minutes = 0;
-        }
-
-        const uid = record.user_id._id || record.user_id;
-        record.user_id = uid;
-
+        await applyAttendanceCalculation(record);
         await record.save();
 
-        const newRecord = await Attendance.findById(record._id).populate('user_id');
-        const o = newRecord.toObject({ virtuals: true });
-        o.id = o._id.toString();
-
-        return res.json(o);
+        const updated = await Attendance.findById(record._id).populate('user_id');
+        res.json(factory.mapId(updated));
     } catch (err) {
-        return res.status(400).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 };
+
+router.post('/attendance', async (req, res, next) => {
+    if (!req.body.admin_update_times) return next();
+    try {
+        let record = await Attendance.create(req.body);
+        // Re-fetch populated to run calculations correctly
+        record = await Attendance.findById(record._id).populate('user_id');
+        await applyAttendanceCalculation(record);
+        await record.save();
+
+        const final = await Attendance.findById(record._id).populate('user_id');
+        res.status(201).json(factory.mapId(final));
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
 
 router.put('/attendance', handleAttendanceAdminUpdate);
 router.patch('/attendance', handleAttendanceAdminUpdate);
@@ -1650,8 +1668,11 @@ router.get('/messages', async (req, res) => {
             sort = { created_at: 1 }; // For specific chat, sort by time (old to new)
         }
 
-        const msgs = await Message.find(query).sort(sort).limit(100);
-        res.json(msgs.map(m => {
+        const msgs = await Message.find(query).sort({ created_at: -1 }).limit(200);
+        // Reverse them so they are in chronological order (oldest to newest for rendering)
+        const sortedMsgs = msgs.reverse();
+        
+        res.json(sortedMsgs.map(m => {
             const o = m.toObject({ virtuals: true });
             o.id = o._id.toString();
             return o;

@@ -28,10 +28,12 @@ import { API_URL } from '@/config';
 
 export default function HRChatPage() {
   const { profile } = useAuth();
+  
   const [users, setUsers] = useState<Profile[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
@@ -47,75 +49,73 @@ export default function HRChatPage() {
 
   const loadInitialData = async () => {
     if (!profile?.id) return;
+    setLoading(true);
     try {
-      // Clear any orphaned chat notifications when landing on chat page
-      await markMessagesAsRead('all', profile.id);
-      window.dispatchEvent(new CustomEvent('chat-read'));
-
-      const usersData = await getAllProfiles();
+      const [usersData, common] = await Promise.all([
+        getAllProfiles(),
+        getCommonChat(profile.id)
+      ]);
       setUsers(usersData);
-
-      const common = await getCommonChat(profile.id);
       if (common) {
-        // ID Fallback
-        if (!common.id && (common as any)._id) common.id = (common as any)._id;
+        const chatId = common.id || (common as any)._id;
+        common.id = chatId;
         setSelectedChat(common);
+        loadMessages(chatId, true);
+        loadGroupMembers(chatId);
       }
-    } catch (error: any) {
-      console.error('Chat Init Error:', error);
-      toast({ title: 'Connection Alert', description: 'Re-establishing corporate link...', variant: 'destructive' });
-      setTimeout(loadInitialData, 3000);
+    } catch (err: any) {
+      console.error('HR Chat Init Error:', err);
     } finally {
-      // setLoading(false);
+      setLoading(false);
     }
   };
 
   const loadMessages = async (chatId: string | undefined, shouldScroll = false) => {
-    if (!chatId || chatId === 'undefined' || chatId === 'null') return;
+    if (!chatId) return;
     try {
       const messagesData = await getChatMessages(chatId);
-      setMessages(messagesData);
-      if (profile?.id) {
-        await markMessagesAsRead(chatId, profile.id);
-        window.dispatchEvent(new CustomEvent('chat-read', { detail: { chatId } }));
+      if (Array.isArray(messagesData)) {
+        setMessages(messagesData);
+        if (shouldScroll) setTimeout(scrollToBottom, 100);
       }
-      if (shouldScroll) {
-        setTimeout(scrollToBottom, 50);
-      }
+    } catch (err: any) {
+      console.error('HR Chat load error:', err);
+    }
+  };
+
+  const loadGroupMembers = async (chatId: string) => {
+    try {
+      const members = await getChatMembers(chatId);
+      setGroupMembers(members);
     } catch { /* silent */ }
   };
 
-  useEffect(() => { loadInitialData(); }, [profile]);
-
   useEffect(() => {
-    if (selectedChat) {
-      loadMessages(selectedChat.id, true);
-      loadGroupMembers(selectedChat.id);
-    }
-  }, [selectedChat]);
+    loadInitialData();
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!selectedChat) return;
-    const msgInterval = setInterval(() => {
-      if (selectedChat?.id) loadMessages(selectedChat.id.toString(), false);
+    const interval = setInterval(() => {
+      loadMessages(selectedChat.id, false);
     }, 2000);
-    const memberInterval = setInterval(() => {
-      if (selectedChat?.id) loadGroupMembers(selectedChat.id.toString());
+    return () => clearInterval(interval);
+  }, [selectedChat?.id]);
+
+  useEffect(() => {
+    if (!selectedChat) return;
+    const interval = setInterval(() => {
+      loadGroupMembers(selectedChat.id);
     }, 10000);
-    return () => {
-      clearInterval(msgInterval);
-      clearInterval(memberInterval);
-    };
-  }, [selectedChat]);
+    return () => clearInterval(interval);
+  }, [selectedChat?.id]);
 
   const handleSendMessage = async (e: any) => {
     e.preventDefault();
     const chatId = selectedChat?.id || (selectedChat as any)?._id;
-    if (!chatId) {
-      toast({ title: 'System Error', description: 'HR Link unstable. Please refresh.' });
-      return;
-    }
+    if (!chatId) return;
     if ((!newMessage.trim() && !selectedFile) || !profile?.id || sending) return;
+
     setSending(true);
     try {
       const payload = {
@@ -131,7 +131,7 @@ export default function HRChatPage() {
       setSelectedFile(null);
       loadMessages(chatId, true);
     } catch (error: any) {
-      toast({ title: 'Error', description: 'Transmission failed. Checking secure line...' });
+      toast({ title: 'Error', description: 'Message delivery failed' });
     } finally {
       setSending(false);
     }
@@ -150,8 +150,6 @@ export default function HRChatPage() {
           name: (result as any).filename || file.name,
           type: (result as any).mimetype || file.type
         });
-      } else {
-        throw new Error((result as any).error || 'Upload failed');
       }
     } catch (err: any) {
       toast({ title: 'Upload Error', description: err.message, variant: 'destructive' });
@@ -161,53 +159,60 @@ export default function HRChatPage() {
     }
   };
 
-  const loadGroupMembers = async (chatId: string) => {
-    try {
-      const members = await getChatMembers(chatId);
-      setGroupMembers(members);
-    } catch { /* silent */ }
-  };
-
-  const getSenderName = (senderId: string) => {
-    const user = users.find(u => u.id === senderId || (u as any)._id === senderId);
-    return user?.full_name || user?.username || 'Unknown';
+  const getSenderName = (senderId: string | any) => {
+    const sId = typeof senderId === 'object' ? senderId.id || senderId._id : senderId;
+    const user = users.find(u => u.id === sId || (u as any)._id === sId);
+    return user?.full_name || user?.username || 'Team Member';
   };
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!confirm('Are you sure you want to delete this message?')) return;
     try {
       await deleteMessage(messageId, profile?.id);
-      if (selectedChat) loadMessages(selectedChat.id.toString(), false);
+      if (selectedChat) loadMessages(selectedChat.id, false);
     } catch (error: any) {
       toast({ title: 'Error', description: 'Failed to delete message', variant: 'destructive' });
     }
   };
 
+  if (loading && !selectedChat) {
+    return (
+      <HRLayout fullWidth>
+        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50/50">
+          <div className="h-16 w-16 border-4 border-indigo-500 border-t-transparent animate-spin rounded-full mb-6" />
+          <p className="font-black uppercase tracking-[0.2em] text-[10px] text-indigo-600 animate-pulse">Accessing HR Workspace...</p>
+        </div>
+      </HRLayout>
+    );
+  }
+
   return (
     <HRLayout fullWidth>
-      <div className="w-full h-full flex flex-col overflow-hidden">
+      <div className="w-full h-full flex flex-col overflow-hidden bg-slate-50">
         <Card className="flex flex-col flex-1 overflow-hidden border-none shadow-none rounded-none bg-white">
           {selectedChat ? (
             <>
-              <CardHeader className="py-5 px-8 border-b border-indigo-50 dark:border-white/5 shrink-0 flex flex-row items-center justify-between bg-white/80 backdrop-blur-md z-10 shadow-sm">
+              <CardHeader className="py-5 px-8 border-b border-slate-100 shrink-0 flex flex-row items-center justify-between bg-white/80 backdrop-blur-md z-10 shadow-sm">
                 <div className="flex items-center gap-5">
-                  <div className="h-14 w-14 rounded-3xl bg-indigo-600/10 flex items-center justify-center text-indigo-600 shadow-inner rotate-3 transition-transform hover:rotate-0">
+                  <div className="h-14 w-14 rounded-3xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-inner rotate-3 transition-transform hover:rotate-0">
                     <Users className="h-7 w-7" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl font-black tracking-tighter uppercase">{selectedChat.group_name}</CardTitle>
+                    <CardTitle className="text-2xl font-black tracking-tighter uppercase">{selectedChat.group_name || 'HR WORKSPACE'}</CardTitle>
                     <div className="flex items-center gap-2.5 mt-0.5">
                       <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-                      <p className="text-[11px] text-indigo-600 font-black uppercase tracking-widest leading-none">{groupMembers.length} STAFF ONLINE</p>
+                      <p className="text-[11px] text-indigo-600 font-black uppercase tracking-widest leading-none">{groupMembers.length} MEMBERS ONLINE</p>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <p className="text-[11px] text-indigo-600 font-semibold uppercase tracking-widest leading-none">{messages.length} BITS SYNCED</p>
                     </div>
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" className="rounded-full h-12 w-12 hover:bg-indigo-50 text-indigo-300 hover:text-indigo-600 border border-indigo-50 transition-all" onClick={() => setGroupInfoOpen(true)}>
+                <Button size="icon" variant="ghost" className="rounded-full h-12 w-12 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-all" onClick={() => setGroupInfoOpen(true)}>
                   <Info className="h-6 w-6" />
                 </Button>
               </CardHeader>
 
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-slate-50/30 dark:bg-indigo-950/5">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-slate-50/50">
                 <div className="flex-1 w-full overflow-y-auto p-6 scroll-smooth">
                   <div className="space-y-6">
                     {messages.map((message: Message, index: number) => {
@@ -223,10 +228,12 @@ export default function HRChatPage() {
 
                       const displayDate = isToday ? 'Today' : isYesterday ? 'Yesterday' : msgDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-                      const isOwn = message.sender_id === profile?.id || (message.sender_id as any)?._id === profile?.id;
+                      const sId = typeof message.sender_id === 'object' ? (message.sender_id as any).id || (message.sender_id as any)._id : message.sender_id;
+                      const isOwn = sId === profile?.id;
                       const isImage = message.file_type?.startsWith('image/');
+
                       return (
-                        <div key={message.id}>
+                        <div key={message.id || message._id}>
                           {showDateHeader && (
                             <div className="flex justify-center my-6">
                               <div className="bg-slate-200/50 text-slate-500 text-[10px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full border border-slate-200/50 backdrop-blur-sm">
@@ -234,23 +241,23 @@ export default function HRChatPage() {
                               </div>
                             </div>
                           )}
-                          <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500 group mt-2`}>
+                          <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 group mt-2`}>
                             <div className={`max-w-[75%] space-y-1`}>
-                              {!isOwn && <p className="text-[10px] font-black ml-4 text-indigo-400 uppercase tracking-widest mb-1">{getSenderName(message.sender_id)}</p>}
-                              <div className={`rounded-[28px] px-6 py-3.5 shadow-md border ${isOwn ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white border-indigo-700 rounded-br-none shadow-indigo-200' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-white/5 rounded-bl-none text-slate-800 dark:text-slate-100 shadow-indigo-50/50'}`}>
-                                {message.content && <p className="text-[15px] leading-relaxed font-bold">{message.content}</p>}
+                              {!isOwn && <p className="text-[10px] font-black ml-4 text-indigo-600 uppercase tracking-widest mb-1">{getSenderName(message.sender_id)}</p>}
+                              <div className={`rounded-[28px] px-6 py-3.5 shadow-sm border ${isOwn ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white border-indigo-500 rounded-br-none shadow-indigo-200' : 'bg-white border-slate-200 rounded-bl-none text-slate-800 shadow-slate-100'}`}>
+                                {message.content && <p className="text-[15px] leading-relaxed font-medium">{message.content}</p>}
                                 {message.file_url && (
                                   <div className="mt-3 overflow-hidden rounded-[24px] ring-1 ring-black/5 shadow-lg">
                                     {isImage ? (
                                       <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer">
-                                        <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[450px] object-cover hover:scale-[1.02] transition-transform duration-500 cursor-zoom-in" />
+                                        <img src={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} alt={message.file_name} className="max-w-full h-auto max-h-[450px] object-cover hover:scale-[1.02] transition-transform cursor-zoom-in" />
                                       </a>
                                     ) : (
-                                      <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-indigo-50/50 dark:bg-white/5 rounded-[24px] hover:bg-indigo-100/50 transition-all group border border-indigo-100/20">
-                                        <div className="h-14 w-14 bg-white dark:bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-600 shadow-md border border-indigo-200 group-hover:scale-110 transition-transform"><FileText className="h-8 w-8" /></div>
+                                      <a href={message.file_url.startsWith('http') ? message.file_url : `${API_URL.replace('/api', '')}${message.file_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-indigo-50/50 rounded-[24px] hover:bg-indigo-100/50 transition-all group border border-indigo-100/20">
+                                        <div className="h-14 w-14 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-md border border-indigo-200 group-hover:rotate-6 transition-transform"><FileText className="h-8 w-8" /></div>
                                         <div className="flex-1 min-w-0">
                                           <p className="text-sm font-black truncate leading-tight">{message.file_name}</p>
-                                          <p className="text-[10px] text-indigo-600 font-black tracking-widest mt-1 uppercase">Corporate Asset</p>
+                                          <p className="text-[10px] text-indigo-600/70 font-black tracking-widest uppercase mt-1">Shared Material</p>
                                         </div>
                                         <Download className="h-5 w-5 opacity-40 group-hover:opacity-100 group-hover:text-indigo-600 transition-all" />
                                       </a>
@@ -260,7 +267,7 @@ export default function HRChatPage() {
                                 <div className="flex items-center justify-between gap-2 mt-2.5">
                                   {isOwn && (
                                     <button
-                                      onClick={() => handleDeleteMessage(message.id)}
+                                      onClick={() => handleDeleteMessage(message.id || message._id as string)}
                                       className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5 text-white"
                                       title="Delete Message"
                                     >
@@ -268,7 +275,7 @@ export default function HRChatPage() {
                                     </button>
                                   )}
                                   <p className="text-[9px] opacity-60 font-black tracking-widest uppercase ml-auto">
-                                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(message.created_at || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </p>
                                 </div>
                               </div>
@@ -281,11 +288,11 @@ export default function HRChatPage() {
                   </div>
                 </div>
 
-                <div className="p-4 border-t border-indigo-50 dark:border-white/5 bg-white/50 backdrop-blur-3xl shrink-0 relative">
+                <div className="p-4 border-t border-slate-100 bg-white/50 backdrop-blur-xl shrink-0 relative">
                   {selectedFile && (
-                    <div className="absolute bottom-full left-4 right-4 mb-4 p-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-2xl border border-indigo-200/30 dark:border-white/10 rounded-[28px] flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 zoom-in-95 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-20">
+                    <div className="absolute bottom-full left-4 right-4 mb-4 p-4 bg-white/95 backdrop-blur-2xl border border-indigo-200/30 rounded-[28px] flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 zoom-in-95 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-20">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="h-14 w-14 bg-indigo-600/10 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-inner border border-indigo-600/5">
+                        <div className="h-14 w-14 bg-indigo-500/10 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-inner border border-indigo-500/5">
                           {selectedFile.type.startsWith('image/') ? (
                             <img src={selectedFile.url.startsWith('http') ? selectedFile.url : `${API_URL.replace('/api', '')}${selectedFile.url}`} className="h-full w-full object-cover" />
                           ) : (
@@ -293,7 +300,7 @@ export default function HRChatPage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-black truncate leading-tight text-slate-900 dark:text-indigo-50">{selectedFile.name}</p>
+                          <p className="text-sm font-black truncate leading-tight text-slate-900">{selectedFile.name}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
                             <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">{selectedFile.type.split('/')[1]}</p>
@@ -305,16 +312,16 @@ export default function HRChatPage() {
                       </button>
                     </div>
                   )}
-                  <form onSubmit={handleSendMessage} className="flex gap-3 items-center bg-slate-50 dark:bg-white/5 p-2 rounded-[32px] ring-1 ring-black/5 focus-within:ring-2 ring-indigo-500/30 transition-all flex-nowrap overflow-hidden shadow-inner">
+                  <form onSubmit={handleSendMessage} className="flex gap-3 items-center bg-slate-100/80 p-2 rounded-[32px] ring-1 ring-black/5 focus-within:ring-2 ring-indigo-500/20 transition-all flex-nowrap overflow-hidden shadow-inner">
                     <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                    <Button type="button" size="icon" variant="ghost" className="h-12 w-12 shrink-0 rounded-full hover:bg-white dark:hover:bg-white/10 transition-all shadow-sm bg-white border border-indigo-50/50" onClick={() => fileInputRef.current?.click()} disabled={uploading || sending}>
-                      <Paperclip className={`h-6 w-6 text-indigo-400 ${uploading ? 'animate-spin text-indigo-600' : ''}`} />
+                    <Button type="button" size="icon" variant="ghost" className="h-12 w-12 shrink-0 rounded-full hover:bg-white transition-all shadow-sm bg-white/50" onClick={() => fileInputRef.current?.click()} disabled={uploading || sending}>
+                      <Paperclip className={`h-6 w-6 text-slate-500 ${uploading ? 'animate-spin text-indigo-500' : ''}`} />
                     </Button>
                     <textarea
                       value={newMessage}
                       onChange={e => setNewMessage(e.target.value)}
-                      placeholder="Share an update with the team..."
-                      className="flex-1 bg-transparent border-none focus:ring-0 px-3 py-3 text-[15px] font-medium resize-none h-12 max-h-40 dark:text-white scrollbar-hide"
+                      placeholder="Type your message here to sync with team..."
+                      className="flex-1 bg-transparent border-none focus:ring-0 px-3 py-3 text-[15px] font-medium resize-none h-12 max-h-40 scrollbar-hide"
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); } }}
                       disabled={sending}
                     />
@@ -326,52 +333,50 @@ export default function HRChatPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-16 text-center text-indigo-200">
-              <div className="h-14 w-14 border-4 border-indigo-100 border-t-indigo-600 animate-spin rounded-full mb-6" />
-              <p className="font-black uppercase tracking-widest text-xs animate-pulse text-indigo-400">Syncing with Central Server...</p>
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400 bg-slate-50/30">
+              <div className="h-16 w-16 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-6">
+                <Users className="h-8 w-8 text-indigo-600" />
+              </div>
+              <p className="font-black uppercase tracking-[0.2em] text-xs animate-pulse">Establishing Secure Connection...</p>
             </div>
           )}
         </Card>
 
         {/* Info Dialog */}
         <Dialog open={groupInfoOpen} onOpenChange={setGroupInfoOpen}>
-          <DialogContent className="max-w-md rounded-[40px] p-10 dark:bg-slate-900 border-none shadow-3xl">
+          <DialogContent className="max-w-sm rounded-[32px] p-8 bg-white border-none">
             <DialogHeader>
-              <DialogTitle className="flex flex-col items-center gap-6">
-                <div className="h-24 w-24 rounded-[32px] bg-indigo-600/10 flex items-center justify-center text-indigo-600 shadow-inner ring-1 ring-indigo-600/5">
-                  <Users className="h-12 w-12" />
+              <DialogTitle className="flex flex-col items-center gap-4">
+                <div className="h-20 w-20 rounded-[28px] bg-indigo-500/10 flex items-center justify-center text-indigo-600 shadow-inner">
+                  <Users className="h-10 w-10" />
                 </div>
                 <div className="text-center">
-                  <h2 className="text-3xl font-black uppercase tracking-tighter">{selectedChat?.group_name}</h2>
-                  <p className="text-sm font-bold text-slate-400 mt-2 px-4 shadow-sm py-1 bg-slate-50 dark:bg-white/5 rounded-full inline-block">{selectedChat?.group_description}</p>
+                  <h2 className="text-2xl font-black">{selectedChat?.group_name || 'WORKSPACE'}</h2>
+                  <p className="text-sm font-medium text-slate-500 mt-1">{selectedChat?.group_description || 'Global Team Workspace'}</p>
                 </div>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-6 pt-10">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-600 flex items-center gap-3">
-                  <span className="h-2 w-2 rounded-full bg-indigo-500 animate-bounce" />
-                  Active Staff Directory ({groupMembers.length})
-                </p>
-              </div>
-              <ScrollArea className="h-[300px] pr-4">
-                <div className="space-y-3">
+            <div className="space-y-4 pt-6">
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                Member Roster ({groupMembers.length})
+              </p>
+              <ScrollArea className="h-[250px] pr-4">
+                <div className="space-y-2">
                   {groupMembers.map((member: any) => (
-                    <div key={member.user_id} className="flex items-center gap-4 p-4 rounded-[24px] bg-slate-50/50 dark:bg-white/5 border border-indigo-50/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-lg transition-all duration-300 group">
-                      <Avatar className="h-11 w-11 shadow-md">
-                        <AvatarFallback className="text-xs font-black bg-indigo-600 text-white leading-none">{(member.profiles?.full_name || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                    <div key={member.user_id} className="flex items-center gap-3 p-2.5 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="text-[10px] font-black bg-indigo-500/10 text-indigo-600">{(member.profiles?.full_name || '?').charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-black text-slate-900 dark:text-white truncate">{member.profiles?.full_name}</p>
-                        <p className="text-[10px] text-indigo-600 font-black uppercase tracking-widest mt-0.5">{member.profiles?.role}</p>
+                        <p className="text-xs font-black truncate">{member.profiles?.full_name}</p>
+                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">{member.profiles?.role}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
-              <div className="bg-indigo-50 dark:bg-white/5 p-4 rounded-[20px] text-center border border-indigo-100/50">
-                <p className="text-[10px] text-indigo-400 font-black tracking-[0.3em] uppercase">Enterprise Secure Protocol Enabled</p>
-              </div>
+              <p className="text-center text-[9px] text-slate-400 font-bold tracking-widest uppercase py-2">Workspace ID: #{selectedChat?.id?.slice(-6)}</p>
             </div>
           </DialogContent>
         </Dialog>

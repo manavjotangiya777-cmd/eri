@@ -40,8 +40,9 @@ import { Badge } from '@/components/ui/badge';
 import { getAllProfiles, updateProfile, deleteProfile } from '@/db/api';
 import type { Profile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Users, Trash2, ShieldCheck } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import FollowUpCreateDialog from '@/components/common/FollowUpCreateDialog';
+import { Pencil, Users, Trash2, ShieldCheck, Bell } from 'lucide-react';
 
 export default function HREmployeeManagement() {
   const [employees, setEmployees] = useState<Profile[]>([]);
@@ -50,6 +51,8 @@ export default function HREmployeeManagement() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<Profile | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [targetEmployee, setTargetEmployee] = useState<Profile | null>(null);
   const { toast } = useToast();
 
   const loadEmployees = async () => {
@@ -241,6 +244,18 @@ export default function HREmployeeManagement() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => {
+                              setTargetEmployee(employee);
+                              setFollowUpOpen(true);
+                            }}
+                            title="Add Follow-Up"
+                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          >
+                            <Bell className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => confirmDelete(employee)}
                             title="Delete Employee"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -368,6 +383,12 @@ export default function HREmployeeManagement() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <FollowUpCreateDialog
+          open={followUpOpen}
+          onOpenChange={setFollowUpOpen}
+          targetUser={targetEmployee}
+        />
       </div >
     </HRLayout >
   );

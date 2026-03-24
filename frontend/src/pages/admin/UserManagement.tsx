@@ -40,8 +40,9 @@ import { Badge } from '@/components/ui/badge';
 import { getAllProfiles, updateProfile, getActiveDepartments, getActiveDesignations, getAllClients, deleteProfile, adminCreateUser, adminChangePassword } from '@/db/api';
 import type { Profile, Department, Designation, Client } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Plus, Key, Eye, EyeOff, Filter, Trash2, ShieldCheck, IndianRupee } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Pencil, Plus, Key, Eye, EyeOff, Filter, Trash2, ShieldCheck, IndianRupee, Bell } from 'lucide-react';
+import FollowUpCreateDialog from '@/components/common/FollowUpCreateDialog';
 import React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +66,8 @@ export default function UserManagement() {
     const [changingPassword, setChangingPassword] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
+    const [followUpOpen, setFollowUpOpen] = useState(false);
+    const [targetUserForFollowUp, setTargetUserForFollowUp] = useState<Profile | null>(null);
     const { toast } = useToast();
 
     const [newUser, setNewUser] = useState({
@@ -459,6 +462,19 @@ export default function UserManagement() {
                                                             title="Change Password"
                                                         >
                                                             <Key className="h-4 w-4 text-slate-500" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-full hover:bg-amber-50 hover:text-amber-600 shadow-none"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setTargetUserForFollowUp(user);
+                                                                setFollowUpOpen(true);
+                                                            }}
+                                                            title="Add Follow-Up"
+                                                        >
+                                                            <Bell className="h-4 w-4" />
                                                         </Button>
                                                         <Button
                                                             variant="ghost"
@@ -1048,6 +1064,12 @@ export default function UserManagement() {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                <FollowUpCreateDialog
+                    open={followUpOpen}
+                    onOpenChange={setFollowUpOpen}
+                    targetUser={targetUserForFollowUp}
+                />
             </div>
         </AdminLayout>
     );

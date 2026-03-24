@@ -403,12 +403,17 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
-  target_role: 'all' | 'admin' | 'hr' | 'employee' | 'client';
+  target_role: 'all' | 'admin' | 'hr' | 'employee' | 'client' | 'none';
   target_user: string | null;
-  type: 'system' | 'announcement' | 'birthday' | 'task' | 'attendance' | 'leave';
+  type: 'system' | 'announcement' | 'birthday' | 'task' | 'attendance' | 'leave' | 'chat';
   is_read_by: string[];
   created_at: string;
   created_by: string | null;
+  meta?: {
+    chat_id?: string;
+    message_id?: string;
+    [key: string]: any;
+  };
 }
 export interface CashFlow {
   id: string;

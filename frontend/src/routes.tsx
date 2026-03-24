@@ -285,6 +285,11 @@ const routes: RouteConfig[] = [
     element: <ProtectedRoute allowedRoles={['employee']}><EmployeeAttendanceReport /></ProtectedRoute>,
   },
   {
+    name: 'Follow-Up Management',
+    path: '/employee/followups',
+    element: <ProtectedRoute allowedRoles={['employee']}><FollowUpManagement Layout={EmployeeLayout} /></ProtectedRoute>,
+  },
+  {
     path: '/employee/tasks',
     element: <ProtectedRoute allowedRoles={['employee']}><EmployeeTasks /></ProtectedRoute>,
   },

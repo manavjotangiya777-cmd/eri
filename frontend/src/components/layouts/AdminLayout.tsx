@@ -49,7 +49,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { useChatUnread } from '@/hooks/use-chat-unread';
 import { useFollowUpBadge } from '@/hooks/use-followup-badge';
 import { cn } from '@/lib/utils';
@@ -88,7 +88,6 @@ const NavContent = ({
   isCollapsed,
   settings,
   location,
-  mobileOpen,
   setMobileOpen,
   setIsPinned,
   isPinned
@@ -314,7 +313,7 @@ export default function AdminLayout({ children, fullWidth = false }: AdminLayout
           "flex-1 bg-slate-50/10 min-h-0 overflow-y-auto no-scrollbar scroll-smooth",
           !fullWidth && "p-4 md:p-6 lg:p-8"
         )}>
-          <div className={cn("w-full transition-all duration-300", !fullWidth && "max-w-[1600px] mx-auto space-y-6 pb-12")}>
+          <div className={cn("w-full transition-all duration-300", fullWidth ? "h-full" : "max-w-[1600px] mx-auto space-y-6 pb-12")}>
             {children}
           </div>
         </main>

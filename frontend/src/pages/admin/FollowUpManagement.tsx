@@ -210,7 +210,16 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
         return u?.full_name || u?.username || id;
     };
 
-    const filtered = followUps.filter(f => {
+    const visibleFollowUps = (profile?.role === 'admin' || profile?.role === 'hr')
+        ? followUps
+        : followUps.filter(f =>
+            f.assigned_to === profile?.id ||
+            (f.assigned_to as any)?._id === profile?.id ||
+            f.assigned_by === profile?.id ||
+            (f.assigned_by as any)?._id === profile?.id
+        );
+
+    const filtered = visibleFollowUps.filter(f => {
         const matchStatus = filterStatus === 'all' || f.status === filterStatus;
         const matchSearch = !search ||
             f.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -220,10 +229,10 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
     });
 
     const stats = {
-        total: followUps.length,
-        pending: followUps.filter(f => f.status === 'pending').length,
-        inFollowup: followUps.filter(f => f.status === 'in_followup').length,
-        completed: followUps.filter(f => f.status === 'completed').length,
+        total: visibleFollowUps.length,
+        pending: visibleFollowUps.filter(f => f.status === 'pending').length,
+        inFollowup: visibleFollowUps.filter(f => f.status === 'in_followup').length,
+        completed: visibleFollowUps.filter(f => f.status === 'completed').length,
     };
 
     return (

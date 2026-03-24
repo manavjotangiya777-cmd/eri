@@ -308,8 +308,8 @@ export default function HRAttendanceManagement() {
         return;
       }
 
-      const clockInISO = `${formData.date}T${formData.clock_in}:00`;
-      const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00` : null;
+      const clockInISO = `${formData.date}T${formData.clock_in}:00+05:30`;
+      const clockOutISO = formData.clock_out ? `${formData.date}T${formData.clock_out}:00+05:30` : null;
 
       const now = new Date();
       if (clockOutISO && new Date(clockOutISO) > now) {
@@ -325,6 +325,7 @@ export default function HRAttendanceManagement() {
         user_id: formData.user_id, date: formData.date,
         sessions: [{ clockInAt: clockInISO, clockOutAt: clockOutISO, durationSeconds: 0 }],
         status: clockOutISO ? 'clocked_out' : 'working',
+        admin_update_times: true,
       } as any);
       toast({ title: 'Success', description: 'Attendance record added' });
       setAddDialogOpen(false);

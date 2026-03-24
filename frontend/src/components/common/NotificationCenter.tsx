@@ -35,8 +35,10 @@ function resolveNotificationRoute(notif: Notification, role: string): string | n
 
     switch (type) {
         case 'chat':
-            // chat notifications → chat page for that role
-            return `${base}/chat`;
+            // chat notifications → chat page with chatId
+            const chatId = notif.meta?.chat_id;
+            const chatParam = chatId ? `?chatId=${chatId}` : '';
+            return `${base}/chat${chatParam}`;
         case 'task':
             return role === 'admin' ? '/admin/tasks' : `${base}/tasks`;
         case 'announcement':

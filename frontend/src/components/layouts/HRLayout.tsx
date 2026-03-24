@@ -48,7 +48,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface HRLayoutProps {
@@ -79,7 +79,6 @@ const NavContent = ({
   isCollapsed,
   settings,
   location,
-  mobileOpen,
   setMobileOpen,
   setIsPinned,
   isPinned
@@ -312,7 +311,7 @@ export default function HRLayout({ children, fullWidth = false }: HRLayoutProps)
           "flex-1 bg-slate-50/10 min-h-0 overflow-y-auto no-scrollbar scroll-smooth",
           !fullWidth && "p-4 lg:p-6"
         )}>
-          <div className={cn("w-full transition-all duration-300", !fullWidth && "max-w-[1600px] mx-auto space-y-6 pb-12")}>
+          <div className={cn("w-full transition-all duration-300", fullWidth ? "h-full" : "max-w-[1600px] mx-auto space-y-6 pb-12")}>
             {children}
           </div>
         </main>

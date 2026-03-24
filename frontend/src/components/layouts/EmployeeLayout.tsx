@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Building2,
   FileText,
+  Bell,
   Sparkles,
   IndianRupee,
   HardDrive,
@@ -41,7 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface EmployeeLayoutProps {
@@ -54,6 +55,7 @@ const employeeNavItems = [
   { icon: FileText, label: 'Attendance Report', path: '/employee/attendance-report' },
   { icon: CheckSquare, label: 'My Tasks', path: '/employee/tasks' },
   { icon: Layout, label: 'Weekly Plan', path: '/employee/weekly-plan' },
+  { icon: Bell, label: 'Follow-Ups', path: '/employee/followups' },
   { icon: Calendar, label: 'Leave Request', path: '/employee/leave' },
   { icon: Info, label: 'Information', path: '/employee/info' },
   { icon: MessageSquare, label: 'Chat', path: '/employee/chat' },
@@ -66,7 +68,6 @@ const NavContent = ({
   isCollapsed,
   settings,
   location,
-  mobileOpen,
   setMobileOpen,
   setIsPinned,
   isPinned
@@ -112,8 +113,6 @@ const NavContent = ({
           {employeeNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            const isChat = item.label === 'Chat';
-            const isInfo = item.label === 'Information';
 
             return (
               <Tooltip key={item.path}>
@@ -142,12 +141,12 @@ const NavContent = ({
                       </motion.span>
                     )}
 
-                    {isChat && unreadChatCount > 0 && (
+                    {item.label === 'Chat' && unreadChatCount > 0 && (
                       <Badge variant="destructive" className={cn("h-5 min-w-[20px] flex items-center justify-center p-0 text-[10px] rounded-full", isCollapsed ? "absolute top-1 right-1" : "")}>
                         {unreadChatCount > 9 ? '9+' : unreadChatCount}
                       </Badge>
                     )}
-                    {isInfo && followUpBadge > 0 && (
+                    {item.label === 'Follow-Ups' && followUpBadge > 0 && (
                       <Badge className={cn("h-5 min-w-[20px] flex items-center justify-center p-0 text-[10px] rounded-full bg-amber-500 hover:bg-amber-500", isCollapsed ? "absolute top-1 right-1" : "")}>
                         {followUpBadge > 9 ? '9+' : followUpBadge}
                       </Badge>
@@ -292,7 +291,7 @@ export default function EmployeeLayout({ children, fullWidth = false }: Employee
           "flex-1 bg-slate-50/10 min-h-0 overflow-y-auto no-scrollbar scroll-smooth",
           !fullWidth && "p-4 md:p-6 lg:p-8"
         )}>
-          <div className={cn("w-full transition-all duration-300", !fullWidth && "max-w-[1600px] mx-auto space-y-6 pb-12")}>
+          <div className={cn("w-full transition-all duration-300", fullWidth ? "h-full" : "max-w-[1600px] mx-auto space-y-6 pb-12")}>
             {children}
           </div>
         </main>
