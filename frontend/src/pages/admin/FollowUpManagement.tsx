@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,18 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    Table, TableBody, TableCell, TableRow,
 } from '@/components/ui/table';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
     getAllFollowUps, createFollowUp, updateFollowUp, deleteFollowUp, getAllProfiles,
 } from '@/db/api';
@@ -29,9 +24,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { markFollowUpsSeen } from '@/hooks/use-followup-badge';
 import {
-    Plus, Pencil, Trash2, Eye, Phone, Mail, MessageCircle, Video,
-    User, ChevronRight, Hash, Bell, CalendarDays, Clock,
-    CheckCircle2, MessageSquarePlus, RefreshCw,
+    Plus, Pencil, Trash2, Phone, Mail, MessageCircle, Video,
+    ChevronRight, Hash, Bell, ChevronDown,
+    MessageSquarePlus, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -73,14 +68,14 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
     const [followUps, setFollowUps] = useState<FollowUp[]>([]);
     const [users, setUsers] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [viewOpen, setViewOpen] = useState(false);
     const [editItem, setEditItem] = useState<FollowUp | null>(null);
-    const [viewItem, setViewItem] = useState<FollowUp | null>(null);
     const [updateNoteText, setUpdateNoteText] = useState('');
     const [addingNote, setAddingNote] = useState(false);
     const { toast } = useToast();
     const [filterStatus, setFilterStatus] = useState('all');
+    const [activeTab, setActiveTab] = useState((profile?.role === 'admin' || profile?.role === 'hr') ? 'all' : 'received');
     const [search, setSearch] = useState('');
 
     const emptyForm: Partial<FollowUp> & { required_items_text?: string } = {
@@ -136,9 +131,8 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
     };
 
     const handleView = (item: FollowUp) => {
-        setViewItem(item);
+        setExpandedId(expandedId === item.id ? null : item.id);
         setUpdateNoteText('');
-        setViewOpen(true);
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -184,8 +178,8 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
         }
     };
 
-    const handleAddNote = async () => {
-        if (!updateNoteText.trim() || !viewItem) return;
+    const handleAddNoteInline = async (fu: FollowUp) => {
+        if (!updateNoteText.trim()) return;
         setAddingNote(true);
         try {
             const newNote: FollowUpUpdateNote = {
@@ -193,10 +187,11 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
                 noted_by: profile?.id,
                 noted_at: new Date().toISOString(),
             };
-            await updateFollowUp(viewItem.id, {
-                update_notes: [...(viewItem.update_notes || []), newNote],
-            });
-            setViewItem(prev => prev ? { ...prev, update_notes: [...(prev.update_notes || []), newNote] } : prev);
+            const updatedNotes = [...(fu.update_notes || []), newNote];
+            await updateFollowUp(fu.id, { update_notes: updatedNotes });
+            
+            // Local update
+            setFollowUps(prev => prev.map(f => f.id === fu.id ? { ...f, update_notes: updatedNotes } : f));
             setUpdateNoteText('');
             toast({ title: 'Note Added' });
         } catch {
@@ -220,12 +215,19 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
         );
 
     const filtered = visibleFollowUps.filter(f => {
+        const isReceived = f.assigned_to === profile?.id || (f.assigned_to as any)?._id === profile?.id;
+        const isSent = f.assigned_by === profile?.id || (f.assigned_by as any)?._id === profile?.id;
+
+        const matchTab = activeTab === 'all' 
+            || (activeTab === 'received' && isReceived)
+            || (activeTab === 'sent' && isSent);
+
         const matchStatus = filterStatus === 'all' || f.status === filterStatus;
         const matchSearch = !search ||
             f.title.toLowerCase().includes(search.toLowerCase()) ||
             (f.followup_id || '').toLowerCase().includes(search.toLowerCase()) ||
             (f.related_name || '').toLowerCase().includes(search.toLowerCase());
-        return matchStatus && matchSearch;
+        return matchTab && matchStatus && matchSearch;
     });
 
     const stats = {
@@ -268,6 +270,28 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
                         </Card>
                     ))}
                 </div>
+                
+                {/* ── Tabs ── */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="bg-slate-100 p-1 rounded-xl h-auto border">
+                        {(profile?.role === 'admin' || profile?.role === 'hr') && (
+                            <TabsTrigger value="all" className="rounded-lg px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                All Follow-Ups
+                            </TabsTrigger>
+                        )}
+                        <TabsTrigger value="received" className="rounded-lg px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm relative">
+                            My Received
+                            {visibleFollowUps.filter(f => (f.assigned_to === profile?.id || (f.assigned_to as any)?._id === profile?.id) && f.status !== 'completed').length > 0 && (
+                                <span className="ml-2 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                    {visibleFollowUps.filter(f => (f.assigned_to === profile?.id || (f.assigned_to as any)?._id === profile?.id) && f.status !== 'completed').length}
+                                </span>
+                            )}
+                        </TabsTrigger>
+                        <TabsTrigger value="sent" className="rounded-lg px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                            Sent by Me
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
 
                 {/* ── Filters ── */}
                 <Card>
@@ -315,95 +339,202 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
                             </div>
                         ) : (
                             <div className="overflow-x-auto -mx-6 px-6">
-                                <TooltipProvider>
                                     <Table>
-                                        <TableHeader>
-                                            <TableRow className="hover:bg-transparent text-nowrap">
-                                                <TableHead className="min-w-[100px]">ID</TableHead>
-                                                <TableHead className="min-w-[220px]">Title / Type</TableHead>
-                                                <TableHead className="min-w-[150px]">Related</TableHead>
-                                                <TableHead className="min-w-[140px]">Assigned To</TableHead>
-                                                <TableHead className="min-w-[80px]">Via</TableHead>
-                                                <TableHead className="min-w-[120px]">Status</TableHead>
-                                                <TableHead className="min-w-[120px]">Deadline</TableHead>
-                                                <TableHead className="min-w-[130px]">Next Action</TableHead>
-                                                <TableHead className="min-w-[100px] text-right">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
                                         <TableBody>
                                             {filtered.map(fu => {
                                                 const sc = STATUS_CONFIG[fu.status];
                                                 const tt = TASK_TYPES[fu.task_type];
                                                 const isOverdue = fu.deadline && fu.status !== 'completed' && new Date(fu.deadline) < new Date();
+                                                const isExpanded = expandedId === fu.id;
+                                                const isReceived = fu.assigned_to === profile?.id || (fu.assigned_to as any)?._id === profile?.id;
+
                                                 return (
-                                                    <TableRow key={fu.id} className="group hover:bg-slate-50/60">
-                                                        <TableCell>
-                                                            <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                                                                {fu.followup_id || '-'}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="max-w-[200px]">
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <p className="font-semibold text-slate-900 truncate cursor-help">{fu.title}</p>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent className="max-w-[300px] whitespace-normal">
-                                                                        {fu.title}
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                                <p className="text-xs text-muted-foreground">{tt?.emoji} {tt?.label}</p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="max-w-[150px]">
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <p className="text-sm font-medium truncate cursor-help">{fu.related_name || '-'}</p>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent className="max-w-[300px] whitespace-normal">
-                                                                        Related: {fu.related_name || '-'}
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                                <p className="text-xs text-muted-foreground capitalize">{fu.related_type}</p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-sm">{getUserName(fu.assigned_to)}</TableCell>
-                                                        <TableCell>
-                                                            <span className="flex items-center gap-1.5 text-xs capitalize">
-                                                                {COMM_ICONS[fu.communication_method as keyof typeof COMM_ICONS] || COMM_ICONS.other}
-                                                                {fu.communication_method}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge className={cn('border text-xs', sc.color)}>{sc.label}</Badge>
-                                                        </TableCell>
-                                                        <TableCell className={cn('text-sm', isOverdue ? 'text-red-500 font-semibold' : 'text-slate-600')}>
-                                                            {fu.deadline ? new Date(fu.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
-                                                            {isOverdue && ' ⚠️'}
-                                                        </TableCell>
-                                                        <TableCell className="text-sm text-slate-600">
-                                                            {fu.next_action_date ? new Date(fu.next_action_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleView(fu)}>
-                                                                    <Eye className="h-4 w-4 text-blue-500" />
+                                                    <React.Fragment key={fu.id}>
+                                                        <TableRow className={cn(
+                                                            "group transition-colors", 
+                                                            isExpanded ? "bg-slate-50/80" : "hover:bg-slate-50/60",
+                                                            isReceived && fu.status !== 'completed' && "border-l-4 border-l-amber-400"
+                                                        )}>
+                                                            <TableCell>
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="icon" 
+                                                                    className="h-6 w-6 rounded-md hover:bg-slate-200"
+                                                                    onClick={() => handleView(fu)}
+                                                                >
+                                                                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                                                 </Button>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleEdit(fu)}>
-                                                                    <Pencil className="h-4 w-4 text-slate-500" />
-                                                                </Button>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-red-50" onClick={() => handleDelete(fu.id)}>
-                                                                    <Trash2 className="h-4 w-4 text-red-400" />
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                                                    {fu.followup_id || '-'}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="max-w-[200px]">
+                                                                    <p className="font-semibold text-slate-900 truncate">{fu.title}</p>
+                                                                    <p className="text-xs text-muted-foreground">{tt?.emoji} {tt?.label}</p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="max-w-[150px]">
+                                                                    <p className="text-sm font-medium truncate">{fu.related_name || '-'}</p>
+                                                                    <p className="text-xs text-muted-foreground capitalize">{fu.related_type}</p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-sm">{getUserName(fu.assigned_to)}</TableCell>
+                                                            <TableCell>
+                                                                <span className="flex items-center gap-1.5 text-xs capitalize">
+                                                                    {COMM_ICONS[fu.communication_method as keyof typeof COMM_ICONS] || COMM_ICONS.other}
+                                                                    {fu.communication_method}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge className={cn('border text-xs', sc.color)}>{sc.label}</Badge>
+                                                            </TableCell>
+                                                            <TableCell className={cn('text-sm text-nowrap', isOverdue ? 'text-red-500 font-semibold' : 'text-slate-600')}>
+                                                                {fu.deadline ? new Date(fu.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
+                                                                {isOverdue && ' ⚠️'}
+                                                            </TableCell>
+                                                            <TableCell className="text-sm text-slate-600">
+                                                                {fu.next_action_date ? new Date(fu.next_action_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <div className="flex justify-end gap-1">
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleEdit(fu)}>
+                                                                        <Pencil className="h-4 w-4 text-slate-500" />
+                                                                    </Button>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-red-50" onClick={() => handleDelete(fu.id)}>
+                                                                        <Trash2 className="h-4 w-4 text-red-400" />
+                                                                    </Button>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+
+                                                        {/* ── EXPANDED ROW (DROPDOWN DETAILS) ── */}
+                                                        {isExpanded && (
+                                                            <TableRow className="bg-slate-50 border-t-0 hover:bg-slate-50">
+                                                                <TableCell colSpan={10} className="p-0">
+                                                                    <div className="p-6 border-x mx-4 bg-white rounded-b-2xl shadow-inner animate-in slide-in-from-top-2 duration-300">
+                                                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                                                                            {/* Left Side: Meta & Description */}
+                                                                            <div className="md:col-span-4 space-y-4">
+                                                                                <div className="grid grid-cols-2 gap-3">
+                                                                                    {[
+                                                                                        { label: 'Assigned By', value: getUserName(fu.assigned_by) },
+                                                                                        { label: 'Related', value: `${fu.related_name || '-'} (${fu.related_type})` },
+                                                                                    ].map(item => (
+                                                                                        <div key={item.label} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/60">
+                                                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                                                                                            <p className="text-xs font-semibold mt-0.5 truncate">{item.value}</p>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+
+                                                                                {fu.description && (
+                                                                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                                                                                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Description</h4>
+                                                                                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{fu.description}</p>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {(fu.required_items || []).length > 0 && (
+                                                                                    <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-100/60">
+                                                                                        <h4 className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-2">Required Items</h4>
+                                                                                        <ul className="space-y-1.5">
+                                                                                            {fu.required_items.map((item, i) => (
+                                                                                                <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                                                                                                    <ChevronRight className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" />
+                                                                                                    {item}
+                                                                                                </li>
+                                                                                            ))}
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Middle: Status & Update Controls */}
+                                                                            <div className="md:col-span-4 space-y-4">
+                                                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60">
+                                                                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Update Progress</h4>
+                                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                                        {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                                                                                            <Button
+                                                                                                key={k}
+                                                                                                variant={fu.status === k ? 'default' : 'outline'}
+                                                                                                size="sm"
+                                                                                                className={cn(
+                                                                                                    "h-8 text-xs font-medium",
+                                                                                                    fu.status === k && "shadow-md scale-[1.02]"
+                                                                                                )}
+                                                                                                onClick={async () => {
+                                                                                                    await updateFollowUp(fu.id, { status: k as FollowUpStatus });
+                                                                                                    setFollowUps(prev => prev.map(f => f.id === fu.id ? { ...f, status: k as FollowUpStatus } : f));
+                                                                                                    toast({ title: `Status marked as ${v.label}` });
+                                                                                                }}
+                                                                                            >
+                                                                                                {v.label}
+                                                                                            </Button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                <div className="p-4 bg-white rounded-xl border border-slate-200/60 shadow-sm">
+                                                                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Internal Note</h4>
+                                                                                    <Textarea
+                                                                                        placeholder="Add update note..."
+                                                                                        value={updateNoteText}
+                                                                                        onChange={e => setUpdateNoteText(e.target.value)}
+                                                                                        rows={2}
+                                                                                        className="text-xs mb-2 resize-none focus-visible:ring-amber-500"
+                                                                                    />
+                                                                                    <Button 
+                                                                                        size="sm" 
+                                                                                        className="w-full h-8 text-xs bg-amber-500 hover:bg-amber-600"
+                                                                                        disabled={addingNote || !updateNoteText.trim()}
+                                                                                        onClick={async () => {
+                                                                                            // Temporarily set the item for the handler
+                                                                                            // setViewItem(fu); // Not needed if we use local fu
+                                                                                            handleAddNoteInline(fu);
+                                                                                        }}
+                                                                                    >
+                                                                                        {addingNote ? 'Saving...' : 'Post Note'}
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Right: History Timeline */}
+                                                                            <div className="md:col-span-4">
+                                                                                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                                                                    <MessageSquarePlus className="h-3 w-3" />
+                                                                                    History ({(fu.update_notes || []).length})
+                                                                                </h4>
+                                                                                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                                                                    {(fu.update_notes || []).length === 0 && (
+                                                                                        <p className="text-xs text-muted-foreground italic text-center py-8">No updates recorded yet.</p>
+                                                                                    )}
+                                                                                    {[...(fu.update_notes || [])].reverse().map((note, i) => (
+                                                                                        <div key={i} className="p-3 bg-amber-50/50 rounded-xl border border-amber-100/40 relative overflow-hidden">
+                                                                                            <div className="absolute top-0 left-0 w-1 h-full bg-amber-400" />
+                                                                                            <p className="text-xs font-medium text-slate-800 line-clamp-3 hover:line-clamp-none transition-all">{note.text}</p>
+                                                                                            <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
+                                                                                                <span className="font-semibold text-slate-500">{getUserName(note.noted_by || null)}</span>
+                                                                                                <span>{note.noted_at ? new Date(note.noted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </React.Fragment>
                                                 );
                                             })}
                                         </TableBody>
                                     </Table>
-                                </TooltipProvider>
                             </div>
                         )}
                     </CardContent>
@@ -533,130 +664,6 @@ export default function FollowUpManagement({ Layout = AdminLayout }: FollowUpMan
                     </DialogContent>
                 </Dialog>
 
-                {/* ── VIEW DIALOG ── */}
-                <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-                    <DialogContent className="sm:max-w-[780px] w-[96vw] p-0 flex flex-col gap-0 rounded-2xl overflow-hidden shadow-2xl border-none max-h-[94vh]">
-                        {viewItem && (() => {
-                            const sc = STATUS_CONFIG[viewItem.status];
-                            const tt = TASK_TYPES[viewItem.task_type];
-                            return (
-                                <>
-                                    <div className="px-8 py-5 border-b bg-gradient-to-r from-amber-50 to-white shrink-0">
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div>
-                                                <p className="text-xs font-mono text-muted-foreground mb-1">{viewItem.followup_id || 'No ID'}</p>
-                                                <h2 className="text-xl font-black">{viewItem.title}</h2>
-                                                <p className="text-sm text-muted-foreground mt-0.5">{tt?.emoji} {tt?.label}</p>
-                                            </div>
-                                            <Badge className={cn('border shrink-0', sc.color)}>{sc.label}</Badge>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                                        {/* Meta grid */}
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {[
-                                                { icon: User, label: 'Assigned To', value: getUserName(viewItem.assigned_to) },
-                                                { icon: User, label: 'Assigned By', value: getUserName(viewItem.assigned_by) },
-                                                { icon: Bell, label: 'Contact Via', value: viewItem.communication_method.charAt(0).toUpperCase() + viewItem.communication_method.slice(1) },
-                                                { icon: User, label: 'Related', value: `${viewItem.related_name || '-'} (${viewItem.related_type})` },
-                                                { icon: CalendarDays, label: 'Deadline', value: viewItem.deadline ? new Date(viewItem.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-' },
-                                                { icon: Clock, label: 'Next Action', value: viewItem.next_action_date ? new Date(viewItem.next_action_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-' },
-                                            ].map(item => (
-                                                <div key={item.label} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border">
-                                                    <item.icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</p>
-                                                        <p className="text-sm font-semibold mt-0.5">{item.value}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Description */}
-                                        {viewItem.description && (
-                                            <div>
-                                                <h3 className="font-bold text-sm mb-2 uppercase tracking-wider text-muted-foreground">Description</h3>
-                                                <p className="text-sm bg-slate-50 border p-4 rounded-xl leading-relaxed">{viewItem.description}</p>
-                                            </div>
-                                        )}
-
-                                        {/* Required Items */}
-                                        {(viewItem.required_items || []).length > 0 && (
-                                            <div>
-                                                <h3 className="font-bold text-sm mb-3 uppercase tracking-wider text-muted-foreground">Required Items / Output</h3>
-                                                <ul className="space-y-2">
-                                                    {viewItem.required_items.map((item, i) => (
-                                                        <li key={i} className="flex items-center gap-2 text-sm">
-                                                            <ChevronRight className="h-4 w-4 text-amber-500 shrink-0" />
-                                                            {item}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-
-                                        {/* Update Notes */}
-                                        <div>
-                                            <h3 className="font-bold text-sm mb-3 uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                                <MessageSquarePlus className="h-3.5 w-3.5" />
-                                                Update Notes ({(viewItem.update_notes || []).length})
-                                            </h3>
-                                            <div className="space-y-3 mb-4">
-                                                {(viewItem.update_notes || []).length === 0 && (
-                                                    <p className="text-sm text-muted-foreground italic py-2">No updates yet.</p>
-                                                )}
-                                                {(viewItem.update_notes || []).map((note, i) => (
-                                                    <div key={i} className="p-3 bg-amber-50 rounded-xl border-l-4 border-amber-400">
-                                                        <p className="text-sm font-medium">{note.text}</p>
-                                                        <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                                                            <span>{getUserName(note.noted_by || null)}</span>
-                                                            <span>•</span>
-                                                            <span>{note.noted_at ? new Date(note.noted_at).toLocaleString() : ''}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Textarea
-                                                    placeholder="Add an update note... (e.g. Client sathe call thayu, content 2 divas ma mokalse)"
-                                                    value={updateNoteText}
-                                                    onChange={e => setUpdateNoteText(e.target.value)}
-                                                    rows={2}
-                                                    className="flex-1"
-                                                />
-                                                <Button onClick={handleAddNote} disabled={addingNote || !updateNoteText.trim()} className="self-end">
-                                                    {addingNote ? '...' : 'Post'}
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Status change quick action */}
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border">
-                                            <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-                                            <span className="text-sm font-medium">Update Status:</span>
-                                            <Select
-                                                value={viewItem.status}
-                                                onValueChange={async v => {
-                                                    await updateFollowUp(viewItem.id, { status: v as FollowUpStatus });
-                                                    setViewItem(prev => prev ? { ...prev, status: v as FollowUpStatus } : prev);
-                                                    toast({ title: 'Status Updated' });
-                                                }}
-                                            >
-                                                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                                                        <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </DialogContent>
-                </Dialog>
             </div>
         </Layout>
     );

@@ -1061,6 +1061,26 @@ defineStandardRoutes('/leaves', Leave);
 defineStandardRoutes('/departments', Department);
 defineStandardRoutes('/designations', Designation, 'departments');
 defineStandardRoutes('/holidays', Holiday);
+router.post('/followups', async (req, res) => {
+    try {
+        const doc = await FollowUp.create(req.body);
+        if (doc.assigned_to) {
+            const creator = await Profile.findById(doc.assigned_by);
+            await Notification.create({
+                title: 'New Follow-Up Assigned',
+                message: `You have been assigned a new follow-up: "${doc.title}" by ${creator?.full_name || 'System'}.`,
+                target_user: doc.assigned_to,
+                type: 'followup',
+                target_role: 'none',
+                meta: { followup_id: doc._id }
+            });
+        }
+        const o = doc.toObject({ virtuals: true });
+        o.id = o._id.toString();
+        res.status(201).json(o);
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
 defineStandardRoutes('/followups', FollowUp);
 
 // --- Warnings Routes Re-defined below with security ---

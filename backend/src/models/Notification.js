@@ -11,7 +11,7 @@ const NotificationSchema = new mongoose.Schema({
     target_user: { type: mongoose.Schema.Types.ObjectId, ref: 'Profile', default: null },
     type: {
         type: String,
-        enum: ['system', 'announcement', 'birthday', 'task', 'attendance', 'leave', 'chat', 'warning'],
+        enum: ['system', 'announcement', 'birthday', 'task', 'attendance', 'leave', 'chat', 'warning', 'followup'],
         default: 'system'
     },
     is_read_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Profile' }],
