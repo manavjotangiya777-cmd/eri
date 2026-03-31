@@ -294,20 +294,35 @@ router.get('/attendance/today', async (req, res) => {
 });
 
 router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
-    // ── Helper: compute is_late + late_minutes for a user at a given time ──
+    // ── Helper: compute is_late + late_minutes + shift snapshot for a user at a given time ──
     const computeLateness = async (userId, now) => {
+        const id = userId?._id || userId;
         const settings = await SystemSettings.findOne();
-        const user = await Profile.findById(userId);
+        const user = await Profile.findById(id);
         const shiftType = user?.shift_type || 'full_day';
 
         const startTime = shiftType === 'half_day'
             ? (settings?.half_day_start_time || '09:00')
             : (settings?.work_start_time || '09:00');
+        const endTime = shiftType === 'half_day'
+            ? (settings?.half_day_end_time || '14:00')
+            : (settings?.work_end_time || '18:00');
+        const workHours = shiftType === 'half_day'
+            ? (settings?.half_day_work_hours || 4)
+            : (settings?.work_hours_per_day || 8);
         const threshold = shiftType === 'half_day'
             ? (settings?.half_day_late_threshold ?? 15)
             : (settings?.late_threshold_minutes ?? 15);
 
-        if (!startTime) return { is_late: false, late_minutes: 0 };
+        const snapshot = {
+            shift_type: shiftType,
+            shift_start_time: startTime,
+            shift_end_time: endTime,
+            shift_work_hours: workHours,
+            late_threshold: threshold
+        };
+
+        if (!startTime) return { is_late: false, late_minutes: 0, ...snapshot };
 
         const { h: nowH, m: nowM } = getISTTimeParts(now);
         const [targetH, targetM] = startTime.split(':').map(Number);
@@ -319,10 +334,11 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
         if (nowTotalMinutes > limitTotalMinutes) {
             return {
                 is_late: true,
-                late_minutes: nowTotalMinutes - targetTotalMinutes
+                late_minutes: nowTotalMinutes - targetTotalMinutes,
+                ...snapshot
             };
         }
-        return { is_late: false, late_minutes: 0 };
+        return { is_late: false, late_minutes: 0, ...snapshot };
     };
 
     try {
@@ -338,14 +354,29 @@ router.post('/attendance/clock-in', ensureOfficeNetwork, async (req, res) => {
 
             // Recalculate lateness only on the very first session of the day
             if (record.sessions.length === 0) {
-                const { is_late, late_minutes } = await computeLateness(user_id, now);
+                const { is_late, late_minutes, ...snapshot } = await computeLateness(user_id, now);
                 record.is_late = is_late;
                 record.late_minutes = late_minutes;
+                record.shift_type = snapshot.shift_type;
+                record.shift_start_time = snapshot.shift_start_time;
+                record.shift_end_time = snapshot.shift_end_time;
+                record.shift_work_hours = snapshot.shift_work_hours;
+                record.late_threshold = snapshot.late_threshold;
             }
         } else {
             // Brand-new record — compute lateness for the first clock-in
-            const { is_late, late_minutes } = await computeLateness(user_id, now);
-            record = await Attendance.create({ user_id, date: today, is_late, late_minutes });
+            const { is_late, late_minutes, ...snapshot } = await computeLateness(user_id, now);
+            record = await Attendance.create({ 
+                user_id, 
+                date: today, 
+                is_late, 
+                late_minutes,
+                shift_type: snapshot.shift_type,
+                shift_start_time: snapshot.shift_start_time,
+                shift_end_time: snapshot.shift_end_time,
+                shift_work_hours: snapshot.shift_work_hours,
+                late_threshold: snapshot.late_threshold
+            });
         }
 
         record.sessions.push({ clockInAt: now });
@@ -389,12 +420,12 @@ router.post('/attendance/clock-out', ensureOfficeNetwork, async (req, res) => {
         try {
             const settings = await SystemSettings.findOne();
             const user = await Profile.findById(user_id);
-            const shiftType = user?.shift_type || 'full_day';
+            const shiftType = record.shift_type || user?.shift_type || 'full_day';
             const overtimeEnabled = settings?.overtime_enabled !== false;
 
-            const thresholdHours = shiftType === 'half_day'
+            const thresholdHours = record.shift_work_hours || (shiftType === 'half_day'
                 ? (settings?.half_day_overtime_threshold_hours ?? 4)
-                : (settings?.overtime_threshold_hours ?? 8);
+                : (settings?.overtime_threshold_hours ?? 8));
             const thresholdSeconds = thresholdHours * 3600;
 
             // Overtime
@@ -571,13 +602,23 @@ router.post('/absences/generate', async (req, res) => {
             end_date: { $gte: new Date(from) }
         }).lean();
 
-        // Get all attendance records in range
+        // Get all attendance records in range (with populated users for recalculation)
         const attendanceRecords = await Attendance.find({
             date: { $gte: from, $lte: to }
-        }).lean();
+        }).populate('user_id');
+
+        // RECALCULATION: Update existing attendance records based on current schedule/profile
+        for (const record of attendanceRecords) {
+            try {
+                await applyAttendanceCalculation(record);
+                await record.save();
+            } catch (err) {
+                console.error(`Recalculation failed for ${record._id}:`, err);
+            }
+        }
 
         const attendanceSet = new Set(
-            attendanceRecords.map(a => `${a.user_id.toString()}_${a.date}`)
+            attendanceRecords.map(a => `${a.user_id?._id?.toString() || a.user_id?.toString()}_${a.date}`)
         );
 
         // Helper: get week-of-month for a Saturday (1=1st Sat, 2=2nd Sat, etc.)
@@ -913,9 +954,14 @@ const applyAttendanceCalculation = async (record) => {
     const firstClockIn = record.sessions && record.sessions.length > 0 ? record.sessions[0].clockInAt : null;
 
     if (firstClockIn) {
-        const shiftType = record.user_id?.shift_type || 'full_day';
-        const startTimeStr = shiftType === 'half_day' ? (settings?.half_day_start_time || '09:00') : (settings?.work_start_time || '09:00');
-        const threshold = shiftType === 'half_day' ? (settings?.half_day_late_threshold ?? 15) : (settings?.late_threshold_minutes ?? 15);
+        const shiftType = record.shift_type || record.user_id?.shift_type || 'full_day';
+        const startTimeStr = record.shift_start_time || (shiftType === 'half_day' ? (settings?.half_day_start_time || '09:00') : (settings?.work_start_time || '09:00'));
+        const threshold = record.late_threshold ?? (shiftType === 'half_day' ? (settings?.half_day_late_threshold ?? 15) : (settings?.late_threshold_minutes ?? 15));
+        
+        // Save back snapshots if missing (helps with old records)
+        if (!record.shift_type) record.shift_type = shiftType;
+        if (!record.shift_start_time) record.shift_start_time = startTimeStr;
+        if (record.late_threshold === undefined) record.late_threshold = threshold;
 
         const { h: inH, m: inM } = getISTTimeParts(new Date(firstClockIn));
         const [targetH, targetM] = startTimeStr.split(':').map(Number);
@@ -933,11 +979,17 @@ const applyAttendanceCalculation = async (record) => {
         }
     }
 
-    const shiftType = record.user_id?.shift_type || 'full_day';
+    const shiftType = record.shift_type || record.user_id?.shift_type || 'full_day';
     const overtimeEnabled = settings?.overtime_enabled !== false;
-    const oThresholdHours = shiftType === 'half_day'
-        ? (settings?.half_day_overtime_threshold_hours ?? 4)
-        : (settings?.overtime_threshold_hours ?? 8);
+    const workEndStr = record.shift_end_time || (shiftType === 'half_day' ? (settings?.half_day_end_time || '14:00') : (settings?.work_end_time || '18:00'));
+    const oThresholdHours = record.shift_work_hours || (shiftType === 'half_day'
+        ? (settings?.half_day_work_hours ?? 4)
+        : (settings?.work_hours_per_day ?? 8));
+    
+    // Refresh more snapshots if missing
+    if (!record.shift_end_time) record.shift_end_time = workEndStr;
+    if (!record.shift_work_hours) record.shift_work_hours = oThresholdHours;
+
     const thresholdSeconds = oThresholdHours * 3600;
 
     if (overtimeEnabled) {

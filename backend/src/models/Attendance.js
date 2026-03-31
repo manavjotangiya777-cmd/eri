@@ -31,11 +31,16 @@ const AttendanceSchema = new mongoose.Schema({
     lastClockInAt: { type: Date, default: null },
     currentSessionOpen: { type: Boolean, default: false },
     currentBreakOpen: { type: Boolean, default: false },
-    // Keep legacy fields for admin overview compatibility if possible
     is_late: { type: Boolean, default: false },
     late_minutes: { type: Number, default: 0 },
     is_early_leave: { type: Boolean, default: false },
     early_leave_minutes: { type: Number, default: 0 },
+    // Snapshot of shift for consistent calculations
+    shift_type: { type: String, enum: ['full_day', 'half_day'] },
+    shift_start_time: { type: String },
+    shift_end_time: { type: String },
+    shift_work_hours: { type: Number },
+    late_threshold: { type: Number },
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
     toJSON: { virtuals: true },
